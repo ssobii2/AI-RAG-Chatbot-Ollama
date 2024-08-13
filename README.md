@@ -8,9 +8,9 @@
 
 1. In CMD/Terminal run the following commands:
 
-    ollama pull llama3.1 (For Chat Bot, Size=4.7GB)
+    - ollama pull llama3.1 (For Chat Bot, Size=4.7GB)
 
-    ollama pull nomic-embed-text (For Embeddings, Size=200+ MB)
+    - ollama pull nomic-embed-text (For Embeddings, Size=200+ MB)
 
 ### Installation
 
@@ -18,12 +18,12 @@
 
 1. Install dependencies using Poetry:
 
-   poetry install --no-root
+   - poetry install --no-root
 
 2. Activate the Poetry shell to run:
 
-   poetry shell
+   - poetry shell
 
 3. Run code:
 
-    python ./chatbot.py
+    - python ./chatbot.py
