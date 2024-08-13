@@ -1,11 +1,15 @@
 <template>
-    <div id="app">
-      <h1>Hello World</h1>
+    <div class="flex">
+      <SidebarComponent />
+      <ChatComponent />
     </div>
-  </template>
+</template>
   
-  <script>
-  export default {
-    name: 'App'
-  }
-  </script>
+<script>
+    import SidebarComponent from './components/SidebarComponent.vue'
+    import ChatComponent from './components/ChatComponent.vue'
+    export default {
+    components: { SidebarComponent, ChatComponent },
+        name: 'App'
+    }
+</script>
