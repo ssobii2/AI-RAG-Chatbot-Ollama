@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between w-72"
-  >
+  <div class="sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between w-72">
     <!-- Top Section -->
     <div>
       <!-- Logo and Title -->
@@ -45,7 +43,10 @@
 
       <!-- New Thread Button -->
       <hr class="my-2 border-gray-300" />
-      <button class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full">
+      <button
+        @click="$emit('createThread')"
+        class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -130,6 +131,16 @@
           </svg>
           Threads
         </li>
+        <div class="overflow-y-auto max-h-52">
+          <li
+            v-for="thread in threads"
+            :key="thread"
+            @click="$emit('selectThread', thread)"
+            class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg"
+          >
+            {{ thread }}
+          </li>
+        </div>
       </ul>
     </div>
 
@@ -176,6 +187,9 @@
 
 <script>
 export default {
-  name: 'SidebarComponent'
+  name: 'SidebarComponent',
+  props: {
+    threads: Array
+  }
 }
 </script>

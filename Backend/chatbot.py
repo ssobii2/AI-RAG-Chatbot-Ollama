@@ -1,5 +1,7 @@
 import os
 import json
+import uvicorn
+import uuid
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings, ChatOllama
@@ -8,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, SystemMessage
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -27,10 +29,13 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 pdfs_dir = os.path.join(current_dir, "pdfs")
 db_dir = os.path.join(current_dir, "db")
 persistent_directory = os.path.join(db_dir, "chroma_db_with_metadata")
-chat_history_file = os.path.join(current_dir, "chat_history.json")
+chat_sessions_dir = os.path.join(current_dir, "chat_sessions")
 
 print(f"PDFs directory: {pdfs_dir}")
 print(f"Persistent directory: {persistent_directory}")
+
+if not os.path.exists(chat_sessions_dir):
+    os.makedirs(chat_sessions_dir)
 
 if not os.path.exists(persistent_directory):
     print("\nPersistent directory does not exist. Initializing vector store...")
@@ -143,11 +148,11 @@ question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
 # Function to load chat history from a file
-def load_chat_history():
-    if os.path.exists(chat_history_file):
-        with open(chat_history_file, "r") as file:
+def load_chat_history(session_id):
+    session_file = os.path.join(chat_sessions_dir, f"{session_id}.json")
+    if os.path.exists(session_file):
+        with open(session_file, "r") as file:
             chat_history = json.load(file)
-            # Convert the loaded JSON objects back to the correct message types
             return [
                 HumanMessage(content=msg["content"]) if msg["type"] == "human" else SystemMessage(content=msg["content"])
                 for msg in chat_history
@@ -155,33 +160,63 @@ def load_chat_history():
     return []
 
 # Function to save chat history to a file
-def save_chat_history(chat_history):
-    with open(chat_history_file, "w") as file:
-        # Convert the chat history to JSON serializable format
+def save_chat_history(session_id, chat_history):
+    session_file = os.path.join(chat_sessions_dir, f"{session_id}.json")
+    with open(session_file, "w") as file:
         json.dump([{"type": "human" if isinstance(msg, HumanMessage) else "system", "content": msg.content} for msg in chat_history], file)
 
 class QueryRequest(BaseModel):
     query: str
+    session_id: str
+
+class CreateSessionResponse(BaseModel):
+    session_id: str
+
+@app.post("/create_chat_session", response_model=CreateSessionResponse)
+async def create_chat_session():
+    session_id = str(uuid.uuid4())
+    save_chat_history(session_id, [])
+    return {"session_id": session_id}
 
 @app.post("/chat")
 async def chat_endpoint(request: QueryRequest):
     query = request.query
+    session_id = request.session_id
+
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    # Load chat history
-    chat_history = load_chat_history()
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session ID cannot be empty")
+
+    chat_history = load_chat_history(session_id)
     
-    # Process the query using the RAG chain
     result = rag_chain.invoke({"input": query, "chat_history": chat_history})
     
-    # Update chat history and save
     chat_history.append(HumanMessage(content=query))
     chat_history.append(SystemMessage(content=result["answer"]))
-    save_chat_history(chat_history)
+    save_chat_history(session_id, chat_history)
     
     return {"answer": result['answer']}
 
+@app.get("/chat_history/{session_id}")
+async def get_chat_history(session_id: str = Path(..., description="The ID of the session to retrieve chat history for")):
+    chat_history = load_chat_history(session_id)
+    return [
+        {"type": "human" if isinstance(msg, HumanMessage) else "system", "content": msg.content}
+        for msg in chat_history
+    ]
+
+@app.get("/chat_sessions")
+async def get_chat_sessions():
+    if not os.path.exists(chat_sessions_dir):
+        return []
+
+    sessions = []
+    for filename in os.listdir(chat_sessions_dir):
+        if filename.endswith(".json"):
+            sessions.append(filename.replace(".json", ""))
+    return sessions
+
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
