@@ -8,6 +8,20 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, SystemMessage
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True
+)
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 pdfs_dir = os.path.join(current_dir, "pdfs")
@@ -70,7 +84,8 @@ retriever = db.as_retriever(
     search_kwargs={"k": 3, "lambda_mult": 0.5},
 )
 
-llm = ChatOllama(model="llama3.1")
+# llm = ChatOllama(model="llama3.1")
+llm = ChatOllama(model="qwen2:0.5b")
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -145,25 +160,28 @@ def save_chat_history(chat_history):
         # Convert the chat history to JSON serializable format
         json.dump([{"type": "human" if isinstance(msg, HumanMessage) else "system", "content": msg.content} for msg in chat_history], file)
 
-# Function to simulate a continual chat
-def continual_chat():
-    print("Start chatting with the AI! Type 'exit' to end the conversation.")
-    # Load chat history from file
-    chat_history = load_chat_history()
-    while True:
-        query = input("You: ")
-        if query.lower() == "exit":
-            break
-        # Process the user's query through the retrieval chain
-        result = rag_chain.invoke({"input": query, "chat_history": chat_history})
-        # Display the AI's response
-        print(f"AI: {result['answer']}")
-        # Update the chat history
-        chat_history.append(HumanMessage(content=query))
-        chat_history.append(SystemMessage(content=result["answer"]))
-        # Save the updated chat history to file
-        save_chat_history(chat_history)
+class QueryRequest(BaseModel):
+    query: str
 
-# Main function to start the continual chat
+@app.post("/chat")
+async def chat_endpoint(request: QueryRequest):
+    query = request.query
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    # Load chat history
+    chat_history = load_chat_history()
+    
+    # Process the query using the RAG chain
+    result = rag_chain.invoke({"input": query, "chat_history": chat_history})
+    
+    # Update chat history and save
+    chat_history.append(HumanMessage(content=query))
+    chat_history.append(SystemMessage(content=result["answer"]))
+    save_chat_history(chat_history)
+    
+    return {"answer": result['answer']}
+
 if __name__ == "__main__":
-    continual_chat()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
