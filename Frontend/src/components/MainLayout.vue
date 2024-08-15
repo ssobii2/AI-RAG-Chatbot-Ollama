@@ -11,6 +11,7 @@
       :threads="threads"
       :createThread="createThread"
       @updateSession="updateSessionId"
+      @updateTitle="updateTitle"
     ></router-view>
   </div>
 </template>
@@ -53,7 +54,7 @@ export default {
           }
         })
         const result = await response.json()
-        this.threads.push(result.session_id)
+        this.threads.push({ session_id: result.session_id, title: result.title })
         this.$router.push(`/chat/${result.session_id}`)
       } catch (error) {
         console.error('Error creating chat session:', error)
@@ -66,8 +67,14 @@ export default {
       this.$router.push('/')
     },
     updateSessionId(newSessionId) {
-      if (!this.threads.includes(newSessionId)) {
+      if (!this.threads.find(thread => thread.session_id === newSessionId)) {
         this.threads.push(newSessionId)
+      }
+    },
+    updateTitle({ session_id, title }) {
+      const thread = this.threads.find(thread => thread.session_id === session_id)
+      if (thread) {
+        thread.title = title
       }
     }
   }

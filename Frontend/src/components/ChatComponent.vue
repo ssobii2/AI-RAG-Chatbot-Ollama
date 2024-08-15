@@ -188,6 +188,10 @@ export default {
 
         const result = await response.json()
         this.chatHistory.push({ role: 'ai', content: result.answer })
+        
+        if (result.title) {
+          this.$emit('updateTitle', { session_id: sessionId, title: result.title })
+        }
       } catch (error) {
         console.error('Error:', error)
       } finally {

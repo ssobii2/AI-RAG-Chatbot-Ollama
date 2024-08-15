@@ -2,6 +2,7 @@ import os
 import json
 import uvicorn
 import uuid
+from collections import defaultdict
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings, ChatOllama
@@ -147,6 +148,22 @@ question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 # Create a retrieval chain that combines the history-aware retriever and the question answering chain
 rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
+# Store session titles
+session_titles = defaultdict(str)
+
+# Title Generation Prompt
+title_generation_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 6 words."),
+        ("human", "{input}"),
+    ]
+)
+
+def generate_title(llm, query):
+    prompt = title_generation_prompt.invoke({"input": query})
+    result = llm.invoke(prompt)
+    return result.content
+
 # Function to load chat history from a file
 def load_chat_history(session_id):
     session_file = os.path.join(chat_sessions_dir, f"{session_id}.json")
@@ -171,13 +188,18 @@ class QueryRequest(BaseModel):
 
 class CreateSessionResponse(BaseModel):
     session_id: str
+    session_url: str
+    title: str
 
 @app.post("/create_chat_session", response_model=CreateSessionResponse)
 async def create_chat_session(request: Request):
     session_id = str(uuid.uuid4())
+    session_title = f"Session {len(session_titles) + 1}"
+    session_titles[session_id] = session_title
+    
     save_chat_history(session_id, [])
     base_url = str(request.url_for("create_chat_session")).replace("create_chat_session", f"chat/{session_id}")
-    return {"session_id": session_id, "session_url": base_url}
+    return {"session_id": session_id, "session_url": base_url, "title": session_title}
 
 @app.post("/chat")
 async def chat_endpoint(request: QueryRequest):
@@ -191,14 +213,19 @@ async def chat_endpoint(request: QueryRequest):
         raise HTTPException(status_code=400, detail="Session ID cannot be empty")
 
     chat_history = load_chat_history(session_id)
-    
+
+    new_title = False
+    if session_titles[session_id].startswith("Session"):
+        session_titles[session_id] = generate_title(llm, query)
+        new_title = True
+
     result = rag_chain.invoke({"input": query, "chat_history": chat_history})
     
     chat_history.append(HumanMessage(content=query))
     chat_history.append(SystemMessage(content=result["answer"]))
     save_chat_history(session_id, chat_history)
-    
-    return {"answer": result['answer']}
+
+    return {"answer": result['answer'], "title": session_titles[session_id] if new_title else None}
 
 @app.get("/chat_history/{session_id}")
 async def get_chat_history(session_id: str = Path(..., description="The ID of the session to retrieve chat history for")):
@@ -214,9 +241,8 @@ async def get_chat_sessions():
         return []
 
     sessions = []
-    for filename in os.listdir(chat_sessions_dir):
-        if filename.endswith(".json"):
-            sessions.append(filename.replace(".json", ""))
+    for session_id, title in session_titles.items():
+        sessions.append({"session_id": session_id, "title": title})
     return sessions
 
 if __name__ == "__main__":

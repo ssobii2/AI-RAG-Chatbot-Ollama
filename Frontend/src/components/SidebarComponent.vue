@@ -137,11 +137,11 @@
         <div class="overflow-y-auto max-h-52">
           <li
             v-for="thread in threads"
-            :key="thread"
-            @click="navigateToThread(thread)"
+            :key="thread.session_id"
+            @click="navigateToThread(thread.session_id)"
             class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg"
           >
-            {{ thread }}
+            {{ thread.title }}
           </li>
         </div>
       </ul>
