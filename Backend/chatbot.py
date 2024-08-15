@@ -10,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, SystemMessage
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -173,10 +173,11 @@ class CreateSessionResponse(BaseModel):
     session_id: str
 
 @app.post("/create_chat_session", response_model=CreateSessionResponse)
-async def create_chat_session():
+async def create_chat_session(request: Request):
     session_id = str(uuid.uuid4())
     save_chat_history(session_id, [])
-    return {"session_id": session_id}
+    base_url = str(request.url_for("create_chat_session")).replace("create_chat_session", f"chat/{session_id}")
+    return {"session_id": session_id, "session_url": base_url}
 
 @app.post("/chat")
 async def chat_endpoint(request: QueryRequest):

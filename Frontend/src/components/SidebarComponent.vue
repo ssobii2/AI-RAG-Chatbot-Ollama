@@ -62,7 +62,10 @@
 
       <!-- Menu Items -->
       <ul>
-        <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
+        <li
+          class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg"
+          @click="navigateToHome"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -135,7 +138,7 @@
           <li
             v-for="thread in threads"
             :key="thread"
-            @click="$emit('selectThread', thread)"
+            @click="navigateToThread(thread)"
             class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg"
           >
             {{ thread }}
@@ -190,6 +193,15 @@ export default {
   name: 'SidebarComponent',
   props: {
     threads: Array
+  },
+  methods: {
+    navigateToHome() {
+      this.$emit('home')
+      this.$router.push('/')
+    },
+    navigateToThread(threadId) {
+      this.$router.push(`/chat/${threadId}`)
+    }
   }
 }
 </script>

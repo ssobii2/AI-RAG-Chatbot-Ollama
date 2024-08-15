@@ -24,7 +24,9 @@
         </div>
         <h1 class="text-4xl font-bold mb-4">Chat with me</h1>
         <p class="text-gray-600 max-w-md mb-2">Chat with Meta's Latest AI model - Llama 3.1</p>
-        <p class="text-gray-600 max-w-md mb-4">Create a new Thread or Click below to start chatting</p>
+        <p class="text-gray-600 max-w-md mb-4">
+          Create a new Thread or Click below to start chatting
+        </p>
         <button
           class="mt-6 py-2 px-4 bg-white text-black border border-gray-300 rounded-md shadow-sm hover:bg-gray-100"
           @click="startChat"
@@ -102,7 +104,9 @@ export default {
     sessionId: {
       type: String,
       default: null
-    }
+    },
+    threads: Array,
+    createThread: Function
   },
   data() {
     return {
@@ -122,20 +126,14 @@ export default {
       immediate: true
     }
   },
+  created() {
+    if (this.sessionId) {
+      this.loadChatHistory(this.sessionId)
+    }
+  },
   methods: {
     async startChat() {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/create_chat_session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        const result = await response.json()
-        this.$emit('updateSession', result.session_id)
-      } catch (error) {
-        console.error('Error creating session:', error)
-      }
+      await this.createThread();
     },
     async loadChatHistory(sessionId) {
       if (!sessionId) return
