@@ -1,11 +1,11 @@
 <template>
-  <div class="sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between w-72">
+  <div :class="['sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between transition-width duration-300 ease-in-out', collapsed ? 'w-20' : 'w-72']">
     <!-- Top Section -->
     <div>
       <!-- Logo and Title -->
       <div class="flex items-center mb-6 justify-between">
         <div class="flex">
-          <button class="mr-2">
+          <button v-if="!collapsed">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -21,9 +21,9 @@
               />
             </svg>
           </button>
-          <div class="text-base font-semibold">AI RAG Chatbot</div>
+          <div v-if="!collapsed" class="text-base font-semibold ml-2">AI RAG Chatbot</div>
         </div>
-        <button>
+        <button @click="toggleCollapse" :class="{'mx-auto': collapsed}">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -53,11 +53,11 @@
           viewBox="0 0 24 24"
           stroke-width="1.5"
           stroke="currentColor"
-          class="size-5 mr-2"
+          class="size-5"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        New thread
+        <span class="ml-2" v-if="!collapsed">New thread</span>
       </button>
 
       <!-- Menu Items -->
@@ -72,7 +72,7 @@
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="size-5 mr-2"
+            class="size-5"
           >
             <path
               stroke-linecap="round"
@@ -80,7 +80,7 @@
               d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
             />
           </svg>
-          Home
+          <span class="ml-2" v-if="!collapsed">Home</span>
         </li>
         <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
           <svg
@@ -89,7 +89,7 @@
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="size-5 mr-2"
+            class="size-5"
           >
             <path
               stroke-linecap="round"
@@ -97,7 +97,7 @@
               d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
             />
           </svg>
-          Syncs
+          <span class="ml-2" v-if="!collapsed">Syncs</span>
         </li>
         <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
           <svg
@@ -106,7 +106,7 @@
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="size-5 mr-2"
+            class="size-5"
           >
             <path
               stroke-linecap="round"
@@ -114,7 +114,7 @@
               d="M6.429 9.75 2.25 12l4.179 2.25m0-4.5 5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0 4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0-5.571 3-5.571-3"
             />
           </svg>
-          Models
+          <span class="ml-2" v-if="!collapsed">Models</span>
         </li>
         <hr class="my-10 border-gray-300" />
         <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
@@ -124,7 +124,7 @@
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="size-5 mr-2"
+            class="size-5"
           >
             <path
               stroke-linecap="round"
@@ -132,9 +132,9 @@
               d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.282 48.282 0 0 0 5.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"
             />
           </svg>
-          Threads
+          <span class="ml-2" v-if="!collapsed">Threads</span>
         </li>
-        <div class="overflow-y-auto max-h-52">
+        <div v-if="!collapsed" class="overflow-y-auto max-h-52">
           <li
             v-for="thread in threads"
             :key="thread.session_id"
@@ -157,7 +157,7 @@
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="size-5 mr-2"
+            class="size-5"
           >
             <path
               stroke-linecap="round"
@@ -170,7 +170,7 @@
               d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
             />
           </svg>
-          Settings
+          <span class="ml-2" v-if="!collapsed">Settings</span>
         </li>
       </ul>
       <hr class="my-2 border-gray-300" />
@@ -179,10 +179,11 @@
       <div class="flex items-center mt-4">
         <div
           class="bg-yellow-500 rounded-full w-7 h-7 flex items-center justify-center text-white font-light text-xs"
+          :class="{'mx-auto': collapsed}"
         >
           DE
         </div>
-        <span class="ml-2">Demo User</span>
+        <span v-if="!collapsed" class="ml-2">Demo User</span>
       </div>
     </div>
   </div>
@@ -194,7 +195,15 @@ export default {
   props: {
     threads: Array
   },
+  data() {
+    return {
+      collapsed: false
+    }
+  },
   methods: {
+    toggleCollapse() {
+      this.collapsed = !this.collapsed;
+    },
     navigateToHome() {
       this.$emit('home')
       this.$router.push('/')
