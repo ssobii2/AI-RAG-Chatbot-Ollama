@@ -60,7 +60,7 @@ if not os.path.exists(persistent_directory):
             documents.append(doc)
 
     rec_char_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=100
+        chunk_size=2000, chunk_overlap=100
     )
     rec_char_docs = rec_char_splitter.split_documents(documents)
 
@@ -169,10 +169,11 @@ def load_chat_history(session_id):
     session_file = os.path.join(chat_sessions_dir, f"{session_id}.json")
     if os.path.exists(session_file):
         with open(session_file, "r") as file:
-            chat_history = json.load(file)
+            session_data = json.load(file)
+            session_titles[session_id] = session_data.get("title", session_titles.get(session_id, "Untitled Session"))
             return [
                 HumanMessage(content=msg["content"]) if msg["type"] == "human" else SystemMessage(content=msg["content"])
-                for msg in chat_history
+                for msg in session_data.get("history", [])
             ]
     return []
 
@@ -180,7 +181,10 @@ def load_chat_history(session_id):
 def save_chat_history(session_id, chat_history):
     session_file = os.path.join(chat_sessions_dir, f"{session_id}.json")
     with open(session_file, "w") as file:
-        json.dump([{"type": "human" if isinstance(msg, HumanMessage) else "system", "content": msg.content} for msg in chat_history], file)
+        json.dump({
+            "title": session_titles[session_id],
+            "history": [{"type": "human" if isinstance(msg, HumanMessage) else "system", "content": msg.content} for msg in chat_history]
+        }, file)
 
 class QueryRequest(BaseModel):
     query: str
@@ -241,8 +245,14 @@ async def get_chat_sessions():
         return []
 
     sessions = []
-    for session_id, title in session_titles.items():
-        sessions.append({"session_id": session_id, "title": title})
+    for session_file in os.listdir(chat_sessions_dir):
+        session_id, ext = os.path.splitext(session_file)
+        if ext == ".json":
+            with open(os.path.join(chat_sessions_dir, session_file), "r") as file:
+                session_data = json.load(file)
+                title = session_data.get("title", f"Session {session_id}")
+                session_titles[session_id] = title
+                sessions.append({"session_id": session_id, "title": title})
     return sessions
 
 if __name__ == "__main__":
