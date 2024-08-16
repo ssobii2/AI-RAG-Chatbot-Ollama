@@ -90,6 +90,9 @@ retriever = db.as_retriever(
     search_kwargs={"k": 3, "lambda_mult": 0.5},
 )
 
+# Using a smaller model for faster response times and testing
+# You can uncomment the line below to use the larger model
+# Also make sure you have the larger model downloaded by running `ollama pull llama3.1`
 # llm = ChatOllama(model="llama3.1")
 llm = ChatOllama(model="qwen2:0.5b")
 
