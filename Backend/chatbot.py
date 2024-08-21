@@ -5,7 +5,8 @@ import uuid
 from collections import defaultdict
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_ollama import OllamaEmbeddings, ChatOllama
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_community.chat_models import ChatOllama
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
@@ -68,7 +69,7 @@ if not os.path.exists(persistent_directory):
     print(f"Number of document chunks: {len(rec_char_docs)}")
 
     model_name = "nomic-embed-text"
-    embeddings = OllamaEmbeddings(model=model_name)
+    embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
 
     print("\nCreating vector store")
 
@@ -82,19 +83,19 @@ if not os.path.exists(persistent_directory):
 else:
     print("Vector store already exists. Loading existing vector store.")
     model_name = "nomic-embed-text"
-    embeddings = OllamaEmbeddings(model=model_name)
+    embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
     db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
 
 retriever = db.as_retriever(
     search_type="mmr",
-    search_kwargs={"k": 3, "lambda_mult": 0.5},
+    search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
 )
 
 # Using a smaller model for faster response times and testing
 # You can uncomment the line below to use the larger model
 # Also make sure you have the larger model downloaded by running `ollama pull llama3.1`
 # llm = ChatOllama(model="llama3.1")
-llm = ChatOllama(model="qwen2:0.5b")
+llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:0.5b")
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -157,7 +158,7 @@ session_titles = defaultdict(str)
 # Title Generation Prompt
 title_generation_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 6 words."),
+        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 4 words. Do not exceed the word limit and keep the title clear and concise."),
         ("human", "{input}"),
     ]
 )
