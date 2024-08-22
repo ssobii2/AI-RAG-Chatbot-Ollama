@@ -3,7 +3,10 @@ import json
 import uvicorn
 import uuid
 import shutil
+import threading
 from collections import defaultdict
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers.polling import PollingObserver as Observer
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
@@ -36,12 +39,23 @@ pdfs_dir = os.path.join(current_dir, "pdfs")
 db_dir = os.path.join(current_dir, "db")
 persistent_directory = os.path.join(db_dir, "chroma_db_with_metadata")
 chat_sessions_dir = os.path.join(current_dir, "chat_sessions")
+processed_files_file = os.path.join(db_dir, "processed_files.json")
 
 print(f"PDFs directory: {pdfs_dir}")
 print(f"Persistent directory: {persistent_directory}")
 
 if not os.path.exists(chat_sessions_dir):
     os.makedirs(chat_sessions_dir)
+
+def load_processed_files():
+    if os.path.exists(processed_files_file):
+        with open(processed_files_file, "r") as file:
+            return json.load(file)
+    return []
+
+def save_processed_files(processed_files):
+    with open(processed_files_file, "w") as file:
+        json.dump(processed_files, file)
 
 def delete_db_contents():
     if os.path.exists(db_dir):
@@ -56,21 +70,25 @@ def delete_db_contents():
                 print(f'Failed to delete {file_path}. Reason: {e}')
         print(f"\nDeleted the contents of the directory: {db_dir}")
 
-if not os.path.exists(persistent_directory):
-    print("\nPersistent directory does not exist. Initializing vector store...")
-
+def update_vector_store():
+    global db
     try:
-        if not os.path.exists(pdfs_dir):
-            raise FileNotFoundError(
-                f"The file {pdfs_dir} does not exist. Please check the path."
-            )
-        
-        # List all text files in the directory
+        processed_files = load_processed_files()
+
+        # List all PDF files in the directory
         pdf_files = [f for f in os.listdir(pdfs_dir) if f.endswith(".pdf")]
 
-        # Read the text content from each file and store it with metadata
+        # Identify new files
+        new_files = [f for f in pdf_files if f not in processed_files]
+
+        if not new_files:
+            print("\nNo new PDF files to process.")
+            return
+
+        print(f"\nNew PDF files detected: {new_files}")
+
         documents = []
-        for pdf_file in pdf_files:
+        for pdf_file in new_files:
             file_path = os.path.join(pdfs_dir, pdf_file)
             loader = PyPDFLoader(file_path)
             pdf_docs = loader.load()
@@ -89,29 +107,69 @@ if not os.path.exists(persistent_directory):
         model_name = "nomic-embed-text"
         embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
 
-        print("\nCreating vector store")
+        # If the vector store already exists, load it; otherwise, create a new one
+        if os.path.exists(persistent_directory):
+            print("\nLoading existing vector store")
+            db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
+        else:
+            print("\nCreating new vector store")
+            db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
 
-        db = Chroma.from_documents(
-            rec_char_docs,
-            embeddings,
-            persist_directory=persistent_directory
-        )
+        print("\nAdding new document chunks to the vector store")
+        db.add_documents(rec_char_docs)
 
-        print("\nFinished creating vector store")
+        print("\nFinished updating vector store")
+
+        # Mark new files as processed
+        processed_files.extend(new_files)
+        save_processed_files(processed_files)
+
     except Exception as e:
         print(f"\nAn error occurred: {str(e)}")
         delete_db_contents()
         raise
+
+class PDFDirectoryHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.src_path.endswith(".pdf"):
+            print(f"Detected new PDF file: {event.src_path}")
+            update_vector_store()
+
+# Initialize `db` and retriever
+db = None
+retriever = None
+
+if not os.path.exists(persistent_directory):
+    print("\nPersistent directory does not exist. Initializing vector store...")
+    update_vector_store()
 else:
     print("Vector store already exists. Loading existing vector store.")
     model_name = "nomic-embed-text"
     embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
     db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
 
-retriever = db.as_retriever(
-    search_type="mmr",
-    search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
-)
+    # After loading, check for new files and update the vector store if needed
+    update_vector_store()
+
+# Initialize retriever after `db` is properly set up
+if db is not None:
+    retriever = db.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
+    )
+
+# Run watchdog observer in a separate thread
+def start_observer():
+    print(f"\nStarting observer for directory: {pdfs_dir}")
+    event_handler = PDFDirectoryHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path=pdfs_dir, recursive=False)
+    observer.start()
+    observer.join()
+
+# Start the observer thread
+observer_thread = threading.Thread(target=start_observer, daemon=True)
+observer_thread.start()
 
 # Using a smaller model for faster response times and testing
 # You can uncomment the line below to use the larger model
