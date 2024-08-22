@@ -2,6 +2,7 @@ import os
 import json
 import uvicorn
 import uuid
+import shutil
 from collections import defaultdict
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -15,6 +16,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Set the environment variable to disable anonymized telemetry for Chroma
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 app = FastAPI()
 
@@ -39,47 +43,65 @@ print(f"Persistent directory: {persistent_directory}")
 if not os.path.exists(chat_sessions_dir):
     os.makedirs(chat_sessions_dir)
 
+def delete_db_contents():
+    if os.path.exists(db_dir):
+        for filename in os.listdir(db_dir):
+            file_path = os.path.join(db_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+        print(f"\nDeleted the contents of the directory: {db_dir}")
+
 if not os.path.exists(persistent_directory):
     print("\nPersistent directory does not exist. Initializing vector store...")
 
-    if not os.path.exists(pdfs_dir):
-        raise FileNotFoundError(
-            f"The file {pdfs_dir} does not exist. Please check the path."
+    try:
+        if not os.path.exists(pdfs_dir):
+            raise FileNotFoundError(
+                f"The file {pdfs_dir} does not exist. Please check the path."
+            )
+        
+        # List all text files in the directory
+        pdf_files = [f for f in os.listdir(pdfs_dir) if f.endswith(".pdf")]
+
+        # Read the text content from each file and store it with metadata
+        documents = []
+        for pdf_file in pdf_files:
+            file_path = os.path.join(pdfs_dir, pdf_file)
+            loader = PyPDFLoader(file_path)
+            pdf_docs = loader.load()
+            for doc in pdf_docs:
+                doc.metadata = {"source": pdf_file}
+                documents.append(doc)
+
+        rec_char_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=100
         )
-    
-    # List all text files in the directory
-    pdf_files = [f for f in os.listdir(pdfs_dir) if f.endswith(".pdf")]
+        rec_char_docs = rec_char_splitter.split_documents(documents)
 
-    # Read the text content from each file and store it with metadata
-    documents = []
-    for pdf_file in pdf_files:
-        file_path = os.path.join(pdfs_dir, pdf_file)
-        loader = PyPDFLoader(file_path)
-        pdf_docs = loader.load()
-        for doc in pdf_docs:
-            doc.metadata = {"source": pdf_file}
-            documents.append(doc)
+        print("\nDocument Chunks Information")
+        print(f"Number of document chunks: {len(rec_char_docs)}")
 
-    rec_char_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=2000, chunk_overlap=100
-    )
-    rec_char_docs = rec_char_splitter.split_documents(documents)
+        model_name = "nomic-embed-text"
+        embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
 
-    print("\nDocument Chunks Information")
-    print(f"Number of document chunks: {len(rec_char_docs)}")
+        print("\nCreating vector store")
 
-    model_name = "nomic-embed-text"
-    embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
+        db = Chroma.from_documents(
+            rec_char_docs,
+            embeddings,
+            persist_directory=persistent_directory
+        )
 
-    print("\nCreating vector store")
-
-    db = Chroma.from_documents(
-        rec_char_docs,
-        embeddings,
-        persist_directory=persistent_directory
-    )
-
-    print("\nFinished creating vector store")
+        print("\nFinished creating vector store")
+    except Exception as e:
+        print(f"\nAn error occurred: {str(e)}")
+        delete_db_contents()
+        raise
 else:
     print("Vector store already exists. Loading existing vector store.")
     model_name = "nomic-embed-text"

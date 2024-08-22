@@ -32,6 +32,8 @@ When running the first time, the below commands will need to run in the Ollama C
     ollama pull qwen2:0.5b
     ```
 
-1. The downloading can also fail due to some reasons so just run the commands again to download them.
+2. The downloading can also fail due to some reasons so just run the commands again to download them.
 
-2. After running the above commands please stop all the containers and delete the db folder in the backend because the embeddings are incorrect and they will be remade with the models. (Will make it better soon so one does not have to delete the directory manually)
+3. After running the above commands please check if the db folder in the backend is empty and there are no files because if there are then those vector store files are incorrect and needs to be deleted (It should be empty but just in case please check. To delete them you need to stop the backend container if running)
+
+4. One other thing, backend takes a while to make vector store so please be patient check the logs for progress and reload the front end page when the backend is fully started. You can check in dev tools network tab to see if its connected to the backend successfully.
