@@ -40,6 +40,7 @@ db_dir = os.path.join(current_dir, "db")
 persistent_directory = os.path.join(db_dir, "chroma_db_with_metadata")
 chat_sessions_dir = os.path.join(current_dir, "chat_sessions")
 processed_files_file = os.path.join(db_dir, "processed_files.json")
+metadata_file = os.path.join(db_dir, "metadata.json")
 
 print(f"PDFs directory: {pdfs_dir}")
 print(f"Persistent directory: {persistent_directory}")
@@ -56,6 +57,16 @@ def load_processed_files():
 def save_processed_files(processed_files):
     with open(processed_files_file, "w") as file:
         json.dump(processed_files, file)
+
+def load_metadata():
+    if os.path.exists(metadata_file):
+        with open(metadata_file, "r") as file:
+            return json.load(file)
+    return {}
+
+def save_metadata(metadata):
+    with open(metadata_file, "w") as file:
+        json.dump(metadata, file)
 
 def delete_db_contents():
     if os.path.exists(db_dir):
@@ -74,6 +85,7 @@ def update_vector_store():
     global db
     try:
         processed_files = load_processed_files()
+        metadata = load_metadata()
 
         # List all PDF files in the directory
         pdf_files = [f for f in os.listdir(pdfs_dir) if f.endswith(".pdf")]
@@ -81,58 +93,94 @@ def update_vector_store():
         # Identify new files
         new_files = [f for f in pdf_files if f not in processed_files]
 
-        if not new_files:
-            print("\nNo new PDF files to process.")
-            return
+        # Identify deleted files
+        deleted_files = [f for f in processed_files if f not in pdf_files]
 
-        print(f"\nNew PDF files detected: {new_files}")
-
-        documents = []
-        for pdf_file in new_files:
-            file_path = os.path.join(pdfs_dir, pdf_file)
-            loader = PyPDFLoader(file_path)
-            pdf_docs = loader.load()
-            for doc in pdf_docs:
-                doc.metadata = {"source": pdf_file}
-                documents.append(doc)
-
-        rec_char_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=100
-        )
-        rec_char_docs = rec_char_splitter.split_documents(documents)
-
-        print("\nDocument Chunks Information")
-        print(f"Number of document chunks: {len(rec_char_docs)}")
-
-        model_name = "nomic-embed-text"
-        embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
-
-        # If the vector store already exists, load it; otherwise, create a new one
+        # Initialize vector store
         if os.path.exists(persistent_directory):
             print("\nLoading existing vector store")
-            db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
+            db = Chroma(embedding_function=OllamaEmbeddings(base_url="http://ollama:11434", model="nomic-embed-text"), persist_directory=persistent_directory)
         else:
             print("\nCreating new vector store")
-            db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
+            db = Chroma(embedding_function=OllamaEmbeddings(base_url="http://ollama:11434", model="nomic-embed-text"), persist_directory=persistent_directory)
 
-        print("\nAdding new document chunks to the vector store")
-        db.add_documents(rec_char_docs)
+        if not new_files and not deleted_files:
+            print("\nNo changes detected in PDF files.")
+            return
+
+        # Process new files if present
+        if new_files:
+            print(f"\nNew PDF files detected: {new_files}")
+
+            documents = []
+            chunk_metadata = {}
+            for pdf_file in new_files:
+                file_path = os.path.join(pdfs_dir, pdf_file)
+                print(f"Loading PDF file: {file_path}")
+                loader = PyPDFLoader(file_path)
+                pdf_docs = loader.load()
+                print(f"Loaded {len(pdf_docs)} documents from {file_path}")
+                for doc in pdf_docs:
+                    doc.metadata = {"source": pdf_file}
+                    documents.append(doc)
+
+            rec_char_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000, chunk_overlap=100
+            )
+            rec_char_docs = rec_char_splitter.split_documents(documents)
+
+            print("\nDocument Chunks Information")
+            print(f"Number of document chunks: {len(rec_char_docs)}")
+
+            # Generate unique IDs for each document chunk
+            ids = [str(uuid.uuid4()) for _ in range(len(rec_char_docs))]
+
+            # Map each chunk ID to its corresponding source file
+            for chunk_id, chunk in zip(ids, rec_char_docs):
+                chunk_metadata[chunk_id] = chunk.metadata["source"]
+
+            print("\nAdding new document chunks to the vector store")
+            db.add_documents(documents=rec_char_docs, ids=ids)
+
+            # Update metadata with new IDs
+            metadata.update(chunk_metadata)
+
+        if deleted_files:
+            print(f"\nDeleted PDF files detected: {deleted_files}")
+
+            # Find vector IDs related to deleted files
+            ids_to_delete = [id for id, source in metadata.items() if source in deleted_files]
+            if ids_to_delete:
+                print(f"\nDeleting vectors with IDs: {ids_to_delete}")
+                db.delete(ids_to_delete)
+                
+                # Remove deleted files from metadata and processed_files
+                metadata = {id: source for id, source in metadata.items() if source not in deleted_files}
+                processed_files = [file for file in processed_files if file not in deleted_files]
 
         print("\nFinished updating vector store")
 
-        # Mark new files as processed
+        # Update processed files and metadata
         processed_files.extend(new_files)
         save_processed_files(processed_files)
+        save_metadata(metadata)
+
+        print("\nProcessed files and metadata updated")
 
     except Exception as e:
         print(f"\nAn error occurred: {str(e)}")
         delete_db_contents()
+        db = None
         raise
 
 class PDFDirectoryHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.src_path.endswith(".pdf"):
             print(f"Detected new PDF file: {event.src_path}")
+            update_vector_store()
+    def on_deleted(self, event):
+        if event.src_path.endswith(".pdf"):
+            print(f"Detected deleted PDF file: {event.src_path}")
             update_vector_store()
 
 # Initialize `db` and retriever
@@ -308,6 +356,12 @@ async def chat_endpoint(request: QueryRequest):
         new_title = True
 
     result = rag_chain.invoke({"input": query, "chat_history": chat_history})
+
+    for doc in result["context"]:
+        print(f"Source: {doc.metadata['source']}")
+        print("Content:")
+        print(doc.page_content)
+        print("\n" + "-"*80 + "\n")
     
     chat_history.append(HumanMessage(content=query))
     chat_history.append(SystemMessage(content=result["answer"]))
