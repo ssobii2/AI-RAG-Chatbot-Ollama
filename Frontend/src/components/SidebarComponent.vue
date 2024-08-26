@@ -1,5 +1,10 @@
 <template>
-  <div :class="['sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between transition-width duration-300 ease-in-out', collapsed ? 'w-20' : 'w-72']">
+  <div
+    :class="[
+      'sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between transition-width duration-300 ease-in-out',
+      collapsed ? 'w-20' : 'w-72'
+    ]"
+  >
     <!-- Top Section -->
     <div>
       <!-- Logo and Title -->
@@ -23,7 +28,7 @@
           </button>
           <div v-if="!collapsed" class="text-base font-semibold ml-2">AI RAG Chatbot</div>
         </div>
-        <button @click="toggleCollapse" :class="{'mx-auto': collapsed}">
+        <button @click="toggleCollapse" :class="{ 'mx-auto': collapsed }">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -44,7 +49,8 @@
       <!-- New Thread Button -->
       <hr class="my-2 border-gray-300" />
       <button
-        @click="$emit('createThread')"
+        @click="createThread()"
+        :disabled="!pdfsAvailable"
         class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
       >
         <svg
@@ -59,6 +65,26 @@
         </svg>
         <span class="ml-2" v-if="!collapsed">New thread</span>
       </button>
+      <router-link
+        to="/manage-pdfs"
+        class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+          />
+        </svg>
+        <span class="ml-2" v-if="!collapsed">Manage PDFs</span>
+      </router-link>
 
       <!-- Menu Items -->
       <ul>
@@ -179,7 +205,7 @@
       <div class="flex items-center mt-4">
         <div
           class="bg-yellow-500 rounded-full w-7 h-7 flex items-center justify-center text-white font-light text-xs"
-          :class="{'mx-auto': collapsed}"
+          :class="{ 'mx-auto': collapsed }"
         >
           DE
         </div>
@@ -197,12 +223,29 @@ export default {
   },
   data() {
     return {
-      collapsed: false
+      collapsed: false,
+      pdfsAvailable: false
+    }
+  },
+  async created() {
+    try {
+      const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
+      const pdfs = await pdfResponse.json()
+      this.pdfsAvailable = pdfs.length > 0
+    } catch (error) {
+      console.error('Error checking PDFs:', error)
     }
   },
   methods: {
+    createThread() {
+      if (!this.pdfsAvailable) {
+        alert('No PDFs available. Please upload at least one PDF to create a new thread.')
+      } else {
+        this.$emit('createThread')
+      }
+    },
     toggleCollapse() {
-      this.collapsed = !this.collapsed;
+      this.collapsed = !this.collapsed
     },
     navigateToHome() {
       this.$emit('home')

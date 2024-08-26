@@ -47,6 +47,14 @@ export default {
   methods: {
     async createThread() {
       try {
+        const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
+        const pdfs = await pdfResponse.json()
+
+        if (pdfs.length === 0) {
+          alert('No PDFs available. Please upload at least one PDF to create a new thread.')
+          return
+        }
+
         const response = await fetch('http://127.0.0.1:8000/create_chat_session', {
           method: 'POST',
           headers: {
@@ -67,12 +75,12 @@ export default {
       this.$router.push('/')
     },
     updateSessionId(newSessionId) {
-      if (!this.threads.find(thread => thread.session_id === newSessionId)) {
+      if (!this.threads.find((thread) => thread.session_id === newSessionId)) {
         this.threads.push(newSessionId)
       }
     },
     updateTitle({ session_id, title }) {
-      const thread = this.threads.find(thread => thread.session_id === session_id)
+      const thread = this.threads.find((thread) => thread.session_id === session_id)
       if (thread) {
         thread.title = title
       }

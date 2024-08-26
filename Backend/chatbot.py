@@ -5,8 +5,6 @@ import uuid
 import shutil
 import threading
 from collections import defaultdict
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers.polling import PollingObserver as Observer
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
@@ -16,7 +14,8 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, SystemMessage
-from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi import FastAPI, HTTPException, Path, Request, UploadFile, File
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -173,16 +172,6 @@ def update_vector_store():
         db = None
         raise
 
-class PDFDirectoryHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        if event.src_path.endswith(".pdf"):
-            print(f"Detected new PDF file: {event.src_path}")
-            update_vector_store()
-    def on_deleted(self, event):
-        if event.src_path.endswith(".pdf"):
-            print(f"Detected deleted PDF file: {event.src_path}")
-            update_vector_store()
-
 # Initialize `db` and retriever
 db = None
 retriever = None
@@ -205,19 +194,6 @@ if db is not None:
         search_type="mmr",
         search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
     )
-
-# Run watchdog observer in a separate thread
-def start_observer():
-    print(f"\nStarting observer for directory: {pdfs_dir}")
-    event_handler = PDFDirectoryHandler()
-    observer = Observer()
-    observer.schedule(event_handler, path=pdfs_dir, recursive=False)
-    observer.start()
-    observer.join()
-
-# Start the observer thread
-observer_thread = threading.Thread(target=start_observer, daemon=True)
-observer_thread.start()
 
 # Using a smaller model for faster response times and testing
 # You can uncomment the line below to use the larger model
@@ -392,6 +368,46 @@ async def get_chat_sessions():
                 session_titles[session_id] = title
                 sessions.append({"session_id": session_id, "title": title})
     return sessions
+
+@app.post("/upload_pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    
+    file_path = os.path.join(pdfs_dir, file.filename)
+    
+    # Save the uploaded file
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    
+    # Update the vector store to include the new file
+    update_vector_store()
+    
+    return {"filename": file.filename, "message": "PDF uploaded successfully"}
+
+@app.delete("/delete_pdf/{filename}")
+async def delete_pdf(filename: str):
+    file_path = os.path.join(pdfs_dir, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="PDF not found")
+    
+    # Delete the file
+    os.remove(file_path)
+    
+    # Update the vector store to remove the file
+    update_vector_store()
+    
+    return {"filename": filename, "message": "PDF deleted successfully"}
+
+@app.get("/list_pdfs")
+async def list_pdfs():
+    try:
+        files = [f for f in os.listdir(pdfs_dir) if f.endswith('.pdf')]
+        return JSONResponse(content=files)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MainLayout from '@/components/MainLayout.vue'
 import ChatComponent from '@/components/ChatComponent.vue'
+import FilesComponent from '@/components/FilesComponent.vue'
 
 const routes = [
   {
@@ -17,6 +18,12 @@ const routes = [
         path: 'chat/:sessionId',
         name: 'chat',
         component: ChatComponent,
+        props: true
+      },
+      {
+        path: 'manage-pdfs',
+        name: 'files',
+        component: FilesComponent,
         props: true
       }
     ]

@@ -129,11 +129,27 @@ export default {
   created() {
     if (this.sessionId) {
       this.loadChatHistory(this.sessionId)
+    } else {
+      this.checkPDFsAvailability()
     }
   },
   methods: {
     async startChat() {
-      await this.createThread();
+      await this.createThread()
+    },
+    async checkPDFsAvailability() {
+      try {
+        const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
+        const pdfs = await pdfResponse.json()
+
+        if (pdfs.length === 0) {
+          alert('No PDFs available. Please upload at least one PDF to interact.')
+          this.$router.push('/manage-pdfs')
+        }
+      } catch (error) {
+        console.error('Error checking PDFs availability:', error)
+        this.$router.push('/manage-pdfs')
+      }
     },
     async loadChatHistory(sessionId) {
       if (!sessionId) return
@@ -188,7 +204,7 @@ export default {
 
         const result = await response.json()
         this.chatHistory.push({ role: 'ai', content: result.answer })
-        
+
         if (result.title) {
           this.$emit('updateTitle', { session_id: sessionId, title: result.title })
         }
