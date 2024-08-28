@@ -14,14 +14,27 @@
         />
         <button
           type="submit"
-          class="mt-4 px-4 py-2 bg-lime-400 text-white rounded-lg hover:bg-lime-500"
+          class="mt-4 mb-2 px-4 py-2 bg-lime-400 text-white rounded-lg hover:bg-lime-500"
         >
           Upload
         </button>
       </form>
-      <p v-if="uploadError" class="text-red-500 mt-2">{{ uploadError }}</p>
-      <p v-if="uploadSuccess" class="text-green-500 mt-2">{{ uploadSuccess }}</p>
-      <p v-if="isLoading" class="text-blue-500 mt-2">Processing Please Wait...</p>
+      <el-alert
+        class="mt-2"
+        v-if="uploadError"
+        title="Upload Error"
+        type="error"
+        description="PDF Upload Failed!"
+        show-icon
+      />
+      <el-alert
+        class="mt-2"
+        v-if="uploadSuccess"
+        title="Upload Success"
+        type="success"
+        description="PDF Uploaded Successfully!"
+        show-icon
+      />
     </div>
 
     <!-- PDF List Section -->
@@ -55,23 +68,39 @@
           </button>
         </li>
       </ul>
-      <p v-if="deleteSuccess" class="text-green-500 mt-2">{{ deleteSuccess }}</p>
-      <p v-if="deleteError" class="text-red-500 mt-2">{{ deleteError }}</p>
+      <el-alert
+        class="mt-2"
+        v-if="deleteSuccess"
+        title="Delete Success"
+        type="success"
+        description="PDF Deleted Successfully!"
+        show-icon
+      />
+      <el-alert
+        class="mt-2"
+        v-if="deleteError"
+        title="Delete Error"
+        type="error"
+        description="PDF Delete Failed!"
+        show-icon
+      />
     </div>
   </div>
 </template>
   
 <script>
+import { ElLoading } from 'element-plus'
+
 export default {
   data() {
     return {
       pdfs: [],
       selectedFile: null,
-      uploadError: null,
-      uploadSuccess: null,
-      deleteSuccess: null,
-      deleteError: null,
-      isLoading: false,
+      uploadError: false,
+      uploadSuccess: false,
+      deleteSuccess: false,
+      deleteError: false,
+      loadingInstance: null
     }
   },
   created() {
@@ -83,14 +112,14 @@ export default {
     },
     async handleUpload() {
       if (!this.selectedFile) {
-        this.uploadError = 'Please select a PDF file to upload.'
+        this.uploadError = true
         this.clearMessage('uploadError')
         return
       }
 
-      this.uploadError = null
-      this.uploadSuccess = null
-      this.isLoading = true
+      this.uploadError = false
+      this.uploadSuccess = false
+      this.startLoading()
 
       const formData = new FormData()
       formData.append('file', this.selectedFile)
@@ -105,22 +134,22 @@ export default {
           throw new Error('Error uploading PDF.')
         }
 
-        this.uploadSuccess = 'PDF uploaded successfully!'
+        this.uploadSuccess = true
         this.clearMessage('uploadSuccess')
         this.refreshPDFList()
         this.$refs.fileInput.value = ''
         this.selectedFile = null
       } catch (error) {
-        this.uploadError = error.message
+        this.uploadError = true
         this.clearMessage('uploadError')
       } finally {
-        this.isLoading = false
+        this.stopLoading()
       }
     },
     async handleDelete(pdf) {
-      this.deleteError = null
-      this.deleteSuccess = null
-      this.isLoading = true
+      this.deleteError = false
+      this.deleteSuccess = false
+      this.startLoading()
 
       try {
         const response = await fetch(`http://127.0.0.1:8000/delete_pdf/${pdf}`, {
@@ -134,14 +163,14 @@ export default {
           throw new Error('Error deleting PDF.')
         }
 
-        this.deleteSuccess = 'PDF deleted successfully!'
+        this.deleteSuccess = true
         this.clearMessage('deleteSuccess')
         this.refreshPDFList()
       } catch (error) {
-        this.deleteError = error.message
+        this.deleteError = true
         this.clearMessage('deleteError')
       } finally {
-        this.isLoading = false
+        this.stopLoading()
       }
     },
     async refreshPDFList() {
@@ -156,11 +185,24 @@ export default {
         console.error('Error fetching PDF list:', error)
       }
     },
+    startLoading() {
+      this.loadingInstance = ElLoading.service({
+        fullscreen: true,
+        lock: true,
+        text: 'Processing Please Wait...',
+        background: 'rgba(0, 0, 0, 0.7)'
+      })
+    },
+    stopLoading() {
+      if (this.loadingInstance) {
+        this.loadingInstance.close()
+      }
+    },
     clearMessage(type) {
       setTimeout(() => {
         this[type] = null
       }, 5000)
-    },
+    }
   }
 }
 </script>

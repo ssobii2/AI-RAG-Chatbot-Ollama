@@ -50,7 +50,6 @@
       <hr class="my-2 border-gray-300" />
       <button
         @click="createThread()"
-        :disabled="!pdfsAvailable"
         class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
       >
         <svg
@@ -216,6 +215,8 @@
 </template>
 
 <script>
+import { ElMessageBox } from 'element-plus'
+
 export default {
   name: 'SidebarComponent',
   props: {
@@ -228,32 +229,66 @@ export default {
     }
   },
   async created() {
-    try {
-      const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
-      const pdfs = await pdfResponse.json()
-      this.pdfsAvailable = pdfs.length > 0
-    } catch (error) {
-      console.error('Error checking PDFs:', error)
-    }
+    await this.checkPDFsAvailability()
   },
   methods: {
-    createThread() {
+    async checkPDFsAvailability() {
+      try {
+        const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
+        const pdfs = await pdfResponse.json()
+        this.pdfsAvailable = pdfs.length > 0
+      } catch (error) {
+        console.error('Error checking PDFs availability:', error)
+        this.pdfsAvailable = false
+      }
+    },
+    async createThread() {
+      await this.checkPDFsAvailability()
       if (!this.pdfsAvailable) {
-        alert('No PDFs available. Please upload at least one PDF to create a new thread.')
+        ElMessageBox.alert(
+          'No PDFs available. Please upload at least one PDF to start chatting.',
+          'Alert',
+          {
+            confirmButtonText: 'OK',
+            callback: () => {
+              this.$router.push('/manage-pdfs')
+            }
+          }
+        )
       } else {
         this.$emit('createThread')
       }
     },
-    toggleCollapse() {
-      this.collapsed = !this.collapsed
-    },
-    navigateToHome() {
+    async navigateToHome() {
+      await this.checkPDFsAvailability()
       this.$emit('home')
       this.$router.push('/')
     },
-    navigateToThread(threadId) {
-      this.$router.push(`/chat/${threadId}`)
+    async navigateToThread(threadId) {
+      await this.checkPDFsAvailability()
+      if (!this.pdfsAvailable) {
+        ElMessageBox.alert(
+          'No PDFs available. Please upload at least one PDF to start chatting.',
+          'Alert',
+          {
+            confirmButtonText: 'OK',
+            callback: () => {
+              this.$router.push('/manage-pdfs')
+            }
+          }
+        )
+      } else {
+        this.$router.push(`/chat/${threadId}`)
+      }
+    },
+    toggleCollapse() {
+      this.collapsed = !this.collapsed
     }
+  },
+  beforeRouteEnter(to, from, next) {
+    next(async (vm) => {
+      await vm.checkPDFsAvailability()
+    })
   }
 }
 </script>

@@ -3,10 +3,11 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:5173"
+      # - "5173:5173"
+      - 4200:4200
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
     command: npm run dev -- --host
@@ -36,4 +37,5 @@ services:
       - ollama:/root/.ollama
 
 volumes:
-  ollama: {}
+  ollama:
+  node_modules:

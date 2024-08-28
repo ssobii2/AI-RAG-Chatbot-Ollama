@@ -58,9 +58,12 @@
       </div>
       <!-- Loading Indicator -->
       <div v-if="loading" class="text-center mt-4">
-        <p class="inline-block px-4 py-2 rounded-md bg-gray-200 text-gray-800 max-w-xs">
+        <el-table v-loading="loading" style="width: 100%" element-loading-text="AI is thinking..." element-loading-background="#FFFF">
+          <el-table-column label="AI" />
+        </el-table>
+        <!-- <p class="inline-block px-4 py-2 rounded-md bg-gray-200 text-gray-800 max-w-xs">
           AI is thinking...
-        </p>
+        </p> -->
       </div>
     </div>
     <div v-if="sessionId" class="w-8/12 rounded-md p-4 flex items-center mb-2 relative">
@@ -76,6 +79,7 @@
       </select>
       <button
         @click="sendMessage"
+        :disabled="loading"
         class="bg-lime-300 text-gray-800 p-3 rounded-md hover:bg-lime-400 absolute bottom-7 right-6"
       >
         <svg
@@ -98,6 +102,8 @@
 </template>
 
 <script>
+import { ElMessageBox } from 'element-plus'
+
 export default {
   name: 'ChatComponent',
   props: {
@@ -143,8 +149,16 @@ export default {
         const pdfs = await pdfResponse.json()
 
         if (pdfs.length === 0) {
-          alert('No PDFs available. Please upload at least one PDF to interact.')
-          this.$router.push('/manage-pdfs')
+          ElMessageBox.alert(
+            'No PDFs available. Please upload at least one PDF to start chatting.',
+            'Alert',
+            {
+              confirmButtonText: 'OK',
+              callback: () => {
+                this.$router.push('/manage-pdfs')
+              }
+            }
+          )
         }
       } catch (error) {
         console.error('Error checking PDFs availability:', error)
