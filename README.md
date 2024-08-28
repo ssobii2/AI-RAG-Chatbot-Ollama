@@ -18,12 +18,12 @@ When running the first time, the below commands will need to run in the Ollama C
 
     - For Embeddings, Size=274 MB
     ```
-    - ollama pull nomic-embed-text
+    ollama pull nomic-embed-text
     ```
     #
     - For Chat Bot, Size=4.7GB, Smallest 8b one
     ```
-    - ollama pull llama3.1
+    ollama pull llama3.1
     ```
     ### OR
     - A very small model, Size=352 MB

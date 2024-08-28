@@ -3,7 +3,6 @@ import json
 import uvicorn
 import uuid
 import shutil
-import threading
 from collections import defaultdict
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -199,7 +198,7 @@ if db is not None:
 # You can uncomment the line below to use the larger model
 # Also make sure you have the larger model downloaded by running `ollama pull llama3.1`
 # llm = ChatOllama(model="llama3.1")
-llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:0.5b")
+llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:0.5b", disable_streaming=True)
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -399,6 +398,15 @@ async def delete_pdf(filename: str):
     update_vector_store()
     
     return {"filename": filename, "message": "PDF deleted successfully"}
+
+@app.delete("/delete_chat_session/{session_id}")
+async def delete_chat_session(session_id: str = Path(..., description="The ID of the session to delete")):
+    session_file = os.path.join(chat_sessions_dir, f"{session_id}.json")
+    if os.path.exists(session_file):
+        os.remove(session_file)
+        return {"session_id": session_id, "message": "Chat session deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Chat session not found")
 
 @app.get("/list_pdfs")
 async def list_pdfs():

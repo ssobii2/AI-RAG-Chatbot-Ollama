@@ -5,6 +5,7 @@
       @createThread="createThread"
       @selectThread="selectThread"
       @home="resetChatState"
+      @threadDeleted="updateThreads"
     />
     <router-view
       :key="currentRoute"
@@ -76,6 +77,9 @@ export default {
       if (thread) {
         thread.title = title
       }
+    },
+    updateThreads(threadId) {
+      this.threads = this.threads.filter((thread) => thread.session_id !== threadId)
     }
   }
 }
