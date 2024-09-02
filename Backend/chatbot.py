@@ -3,6 +3,7 @@ import json
 import uvicorn
 import uuid
 import shutil
+import whisper
 from collections import defaultdict
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -22,6 +23,9 @@ from pydantic import BaseModel
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 app = FastAPI()
+
+# Initialize openai-whisper model
+whisper_model = whisper.load_model("base", device="cuda")
 
 # Add CORS middleware
 app.add_middleware(
@@ -415,6 +419,31 @@ async def list_pdfs():
         return JSONResponse(content=files)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+    
+class TranscriptionResponse(BaseModel):
+    transcription: str
+
+@app.post("/transcribe/", response_model=TranscriptionResponse)
+async def transcribe_audio(file: UploadFile = File(...)):
+    # Save the uploaded file temporarily
+    file_path = f"temp_{file.filename}"
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Transcribe the audio using openai-whisper
+        result = whisper_model.transcribe(file_path)
+        transcription = result['text']
+
+        return {"transcription": transcription}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        # Clean up
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 if __name__ == "__main__":

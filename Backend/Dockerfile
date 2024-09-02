@@ -6,6 +6,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    ffmpeg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -19,11 +20,15 @@ ENV PATH="/root/.local/bin:$PATH"
 # Install Poetry
 RUN pipx install poetry
 
+# Create a directory for Poetry cache
+RUN mkdir -p /root/.cache/pypoetry
+
 # Copy the pyproject.toml and poetry.lock files
 COPY pyproject.toml poetry.lock ./
 
-# Install dependencies using Poetry
-RUN poetry install --no-interaction --no-ansi --no-root
+# Cache Poetry dependencies
+RUN poetry config cache-dir /root/.cache/pypoetry && \
+    poetry install --no-interaction --no-ansi --no-root
 
 # Copy the rest of the application code
 COPY . .

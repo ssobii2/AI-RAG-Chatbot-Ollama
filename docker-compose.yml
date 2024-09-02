@@ -25,6 +25,7 @@ services:
       - ./backend/pdfs:/app/pdfs
       - ./backend/db:/app/db
       - ./backend/chat_sessions:/app/chat_sessions
+      - poetry_cache:/root/.cache/pypoetry
     command: poetry run uvicorn chatbot:app --reload --host 0.0.0.0 --port 8000
     depends_on:
       - ollama
@@ -39,3 +40,4 @@ services:
 volumes:
   ollama:
   node_modules:
+  poetry_cache:
