@@ -2,7 +2,12 @@
 
 - Docker Desktop
 
-- Run below command when Docker Desktop is Running then follow below
+- Run below commands when Docker Desktop is Running then follow below
+```
+docker buildx build -f Dockerfile.whisper -t whisper-base .
+```
+- Make sure to run the above command in the backend directory where the Dockerfile.whisper is present. This command will take a lot of time because it will download the full openai-whisper package.
+
 ```
 docker compose up --build
 ```

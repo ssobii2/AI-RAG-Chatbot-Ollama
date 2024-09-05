@@ -58,7 +58,12 @@
       </div>
       <!-- Loading Indicator -->
       <div v-if="loading" class="text-center mt-4">
-        <el-table v-loading="loading" style="width: 100%" element-loading-text="AI is thinking..." element-loading-background="#FFFF">
+        <el-table
+          v-loading="loading"
+          style="width: 100%"
+          element-loading-text="AI is thinking..."
+          element-loading-background="#FFFF"
+        >
           <el-table-column label="AI" />
         </el-table>
         <!-- <p class="inline-block px-4 py-2 rounded-md bg-gray-200 text-gray-800 max-w-xs">
@@ -72,11 +77,11 @@
         placeholder="Ask a question or make a request..."
         class="flex-grow p-3 rounded-md border-none bg-gray-100 resize-none h-32 focus:outline-none"
       ></textarea>
-      <select
+      <!-- <select
         class="bg-white border-2 rounded-md py-2 px-2 absolute bottom-7 left-6 focus:outline-none cursor-pointer"
       >
         <option>Llama 3.1</option>
-      </select>
+      </select> -->
       <button
         @click="sendMessage"
         :disabled="loading"
@@ -94,6 +99,27 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
+          />
+        </svg>
+      </button>
+
+      <!-- Audio Recording Button -->
+      <button
+        @click="toggleRecording"
+        class="bg-lime-300 text-gray-800 p-3 rounded-md hover:bg-lime-400 absolute bottom-7 left-6"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="size-5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
           />
         </svg>
       </button>
@@ -119,7 +145,11 @@ export default {
       userInput: '',
       chatHistory: [],
       hasSentMessage: false,
-      loading: false
+      loading: false,
+      recording: false,
+      mediaRecorder: null,
+      audioChunks: [],
+      mediaRecorderState: null
     }
   },
   watch: {
@@ -226,6 +256,62 @@ export default {
         console.error('Error:', error)
       } finally {
         this.loading = false
+      }
+    },
+    async toggleRecording() {
+      if (this.recording) {
+        // Stop recording
+        this.mediaRecorder.stop()
+        this.mediaRecorderState = 'stopping'
+        this.recording = false
+      } else {
+        // Start recording
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          this.mediaRecorder = new MediaRecorder(stream)
+          this.audioChunks = []
+
+          // Set up event handlers
+          this.mediaRecorder.ondataavailable = (event) => {
+            this.audioChunks.push(event.data)
+          }
+
+          this.mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' })
+
+            const formData = new FormData()
+            formData.append('file', audioBlob, 'recording.wav')
+
+            try {
+              const response = await fetch(
+                `http://127.0.0.1:8000/audio_chat?session_id=${this.sessionId}`,
+                {
+                  method: 'POST',
+                  body: formData
+                }
+              )
+
+              if (!response.ok) {
+                throw new Error('Audio chat request failed')
+              }
+
+              const result = await response.json()
+
+              // Set the transcription result into the user input area.
+              this.userInput = result.transcription
+            } catch (error) {
+              console.error('Error sending audio data:', error)
+            } finally {
+              this.mediaRecorderState = null
+            }
+          }
+
+          this.mediaRecorder.start()
+          this.recording = true
+          this.mediaRecorderState = 'recording'
+        } catch (error) {
+          console.error('Error accessing microphone:', error)
+        }
       }
     }
   }

@@ -277,8 +277,21 @@ export default {
     },
     async navigateToHome() {
       await this.checkPDFsAvailability()
-      this.$emit('home')
-      this.$router.push('/')
+      if (!this.pdfsAvailable) {
+        ElMessageBox.alert(
+          'No PDFs available. Please upload at least one PDF to start chatting.',
+          'Alert',
+          {
+            confirmButtonText: 'OK',
+            callback: () => {
+              this.$router.push('/manage-pdfs')
+            }
+          }
+        )
+      } else {
+        this.$emit('home')
+        this.$router.push('/')
+      }
     },
     async navigateToThread(threadId) {
       await this.checkPDFsAvailability()

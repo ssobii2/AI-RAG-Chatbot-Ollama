@@ -14,7 +14,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, SystemMessage
-from fastapi import FastAPI, HTTPException, Path, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Path, Request, UploadFile, File, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ os.environ["ANONYMIZED_TELEMETRY"] = "False"
 app = FastAPI()
 
 # Initialize openai-whisper model
-whisper_model = whisper.load_model("base", device="cuda")
+whisper_model = whisper.load_model("base")
 
 # Add CORS middleware
 app.add_middleware(
@@ -420,31 +420,30 @@ async def list_pdfs():
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
-class TranscriptionResponse(BaseModel):
-    transcription: str
-
-@app.post("/transcribe/", response_model=TranscriptionResponse)
-async def transcribe_audio(file: UploadFile = File(...)):
-    # Save the uploaded file temporarily
-    file_path = f"temp_{file.filename}"
+@app.post("/audio_chat")
+async def audio_chat(file: UploadFile = File(...), session_id: str = Query(...)):
+    audio_file = f"temp_audio_{session_id}.wav"
+    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        with open(audio_file, "wb") as f:
+            shutil.copyfileobj(file.file, f)
 
-        # Transcribe the audio using openai-whisper
-        result = whisper_model.transcribe(file_path)
-        transcription = result['text']
+        # Transcribe audio using Whisper
+        result = whisper_model.transcribe(audio_file)
+        text_query = result['text']
 
-        return {"transcription": transcription}
+        # Return the transcribed text to be used in the chat frontend
+        return {"transcription": text_query}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
     finally:
-        # Clean up
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
+        try:
+            if os.path.exists(audio_file):
+                os.remove(audio_file)
+        except Exception as cleanup_error:
+            print(f"Error cleaning up temporary file: {cleanup_error}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
