@@ -18,6 +18,8 @@ from fastapi import FastAPI, HTTPException, Path, Request, UploadFile, File, Que
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pydub import AudioSegment
+from io import BytesIO
 
 # Set the environment variable to disable anonymized telemetry for Chroma
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -420,24 +422,30 @@ async def list_pdfs():
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
-@app.post("/audio_chat")
-async def audio_chat(file: UploadFile = File(...), session_id: str = Query(...)):
+@app.websocket("/ws/audio_chat")
+async def websocket_audio_chat(websocket: WebSocket, session_id: str):
+    await websocket.accept()
     audio_file = f"temp_audio_{session_id}.wav"
-    
+
     try:
-        with open(audio_file, "wb") as f:
-            shutil.copyfileobj(file.file, f)
+        while True:
+            data = await websocket.receive_bytes()
 
-        # Transcribe audio using Whisper
-        result = whisper_model.transcribe(audio_file)
-        text_query = result['text']
+            # Write received audio data to file
+            with open(audio_file, "wb") as f:
+                f.write(data)
 
-        # Return the transcribed text to be used in the chat frontend
-        return {"transcription": text_query}
+            # Transcribe the audio
+            result = whisper_model.transcribe(audio_file)
+            text_query = result['text']
 
+            # Send the transcription back to the client
+            await websocket.send_text(text_query)
+
+    except WebSocketDisconnect:
+        print(f"Client {session_id} disconnected")
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
-
+        await websocket.send_text(f"Error: {str(e)}")
     finally:
         try:
             if os.path.exists(audio_file):

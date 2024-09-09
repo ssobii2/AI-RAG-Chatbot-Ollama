@@ -149,7 +149,8 @@ export default {
       recording: false,
       mediaRecorder: null,
       audioChunks: [],
-      mediaRecorderState: null
+      mediaRecorderState: null,
+      websocket: null
     }
   },
   watch: {
@@ -271,39 +272,37 @@ export default {
           this.mediaRecorder = new MediaRecorder(stream)
           this.audioChunks = []
 
-          // Set up event handlers
+          // Establish WebSocket connection
+          this.websocket = new WebSocket(
+            `ws://127.0.0.1:8000/ws/audio_chat?session_id=${this.sessionId}`
+          )
+
+          this.websocket.onmessage = (event) => {
+            // Receive transcription from WebSocket and set it to user input
+            this.userInput = event.data
+          }
+
+          this.websocket.onerror = (error) => {
+            console.error('WebSocket error:', error)
+          }
+
+          // Send audio data when recording stops
           this.mediaRecorder.ondataavailable = (event) => {
             this.audioChunks.push(event.data)
           }
 
-          this.mediaRecorder.onstop = async () => {
+          this.mediaRecorder.onstop = () => {
             const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' })
+            const reader = new FileReader()
 
-            const formData = new FormData()
-            formData.append('file', audioBlob, 'recording.wav')
+            reader.onload = () => {
+              const arrayBuffer = reader.result
 
-            try {
-              const response = await fetch(
-                `http://127.0.0.1:8000/audio_chat?session_id=${this.sessionId}`,
-                {
-                  method: 'POST',
-                  body: formData
-                }
-              )
-
-              if (!response.ok) {
-                throw new Error('Audio chat request failed')
-              }
-
-              const result = await response.json()
-
-              // Set the transcription result into the user input area.
-              this.userInput = result.transcription
-            } catch (error) {
-              console.error('Error sending audio data:', error)
-            } finally {
-              this.mediaRecorderState = null
+              // Send the audio data to the backend via WebSocket
+              this.websocket.send(arrayBuffer)
             }
+
+            reader.readAsArrayBuffer(audioBlob)
           }
 
           this.mediaRecorder.start()
