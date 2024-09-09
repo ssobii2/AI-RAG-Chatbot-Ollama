@@ -106,7 +106,8 @@
       <!-- Audio Recording Button -->
       <button
         @click="toggleRecording"
-        class="bg-lime-300 text-gray-800 p-3 rounded-md hover:bg-lime-400 absolute bottom-7 left-6"
+        :class="recording ? 'bg-red-500 hover:bg-red-600' : 'bg-lime-300 hover:bg-lime-400'"
+        class="text-gray-800 p-3 rounded-md absolute bottom-7 left-6"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -161,6 +162,18 @@ export default {
         }
       },
       immediate: true
+    }
+  },
+  mounted() {
+    if (this.sessionId) {
+      // Open WebSocket connection
+      this.openWebSocket()
+    }
+  },
+  beforeUnmount() {
+    // Clean up WebSocket connection
+    if (this.websocket) {
+      this.websocket.close()
     }
   },
   created() {
@@ -261,56 +274,71 @@ export default {
     },
     async toggleRecording() {
       if (this.recording) {
-        // Stop recording
+        this.stopRecording()
+      } else {
+        await this.startRecording()
+      }
+    },
+    async startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        this.mediaRecorder = new MediaRecorder(stream)
+        this.audioChunks = []
+
+        // Establish WebSocket connection
+        this.openWebSocket()
+
+        // Send audio data when recording stops
+        this.mediaRecorder.ondataavailable = (event) => {
+          this.audioChunks.push(event.data)
+        }
+
+        this.mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' })
+          const reader = new FileReader()
+
+          reader.onload = () => {
+            const arrayBuffer = reader.result
+
+            // Send the audio data to the backend via WebSocket
+            if (this.websocket) {
+              this.websocket.send(arrayBuffer)
+            }
+          }
+
+          reader.readAsArrayBuffer(audioBlob)
+        }
+
+        this.mediaRecorder.start()
+        this.recording = true
+        this.mediaRecorderState = 'recording'
+      } catch (error) {
+        console.error('Error accessing microphone:', error)
+      }
+    },
+    stopRecording() {
+      if (this.mediaRecorder) {
         this.mediaRecorder.stop()
         this.mediaRecorderState = 'stopping'
         this.recording = false
-      } else {
-        // Start recording
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          this.mediaRecorder = new MediaRecorder(stream)
-          this.audioChunks = []
+      }
+    },
+    openWebSocket() {
+      if (this.websocket) {
+        this.websocket.close()
+      }
 
-          // Establish WebSocket connection
-          this.websocket = new WebSocket(
-            `ws://127.0.0.1:8000/ws/audio_chat?session_id=${this.sessionId}`
-          )
+      this.websocket = new WebSocket(
+        `ws://127.0.0.1:8000/ws/audio_chat?session_id=${this.sessionId}`
+      )
 
-          this.websocket.onmessage = (event) => {
-            // Receive transcription from WebSocket and set it to user input
-            this.userInput = event.data
-          }
+      this.websocket.onmessage = (event) => {
+        // Receive transcription from WebSocket and set it to user input
+        this.userInput = event.data
+      }
 
-          this.websocket.onerror = (error) => {
-            console.error('WebSocket error:', error)
-          }
-
-          // Send audio data when recording stops
-          this.mediaRecorder.ondataavailable = (event) => {
-            this.audioChunks.push(event.data)
-          }
-
-          this.mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' })
-            const reader = new FileReader()
-
-            reader.onload = () => {
-              const arrayBuffer = reader.result
-
-              // Send the audio data to the backend via WebSocket
-              this.websocket.send(arrayBuffer)
-            }
-
-            reader.readAsArrayBuffer(audioBlob)
-          }
-
-          this.mediaRecorder.start()
-          this.recording = true
-          this.mediaRecorderState = 'recording'
-        } catch (error) {
-          console.error('Error accessing microphone:', error)
-        }
+      this.websocket.onerror = (error) => {
+        console.error('WebSocket error:', error)
       }
     }
   }

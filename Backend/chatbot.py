@@ -442,16 +442,17 @@ async def websocket_audio_chat(websocket: WebSocket, session_id: str):
             # Send the transcription back to the client
             await websocket.send_text(text_query)
 
+            # Delete the temporary file after sending the response
+            if os.path.exists(audio_file):
+                os.remove(audio_file)
+
     except WebSocketDisconnect:
         print(f"Client {session_id} disconnected")
     except Exception as e:
         await websocket.send_text(f"Error: {str(e)}")
-    finally:
-        try:
-            if os.path.exists(audio_file):
-                os.remove(audio_file)
-        except Exception as cleanup_error:
-            print(f"Error cleaning up temporary file: {cleanup_error}")
+        # Ensure temporary file is deleted even if an error occurs
+        if os.path.exists(audio_file):
+            os.remove(audio_file)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
