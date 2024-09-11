@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 chat_sessions_dir = os.path.join(current_dir, "chat_sessions")
-pdfs_dir = os.path.join(current_dir, "pdfs")
+files_dir = os.path.join(current_dir, "files")
 
 if not os.path.exists(chat_sessions_dir):
     os.makedirs(chat_sessions_dir)
@@ -124,14 +124,26 @@ async def get_chat_sessions():
                 sessions.append({"session_id": session_id, "title": title})
     return sessions
 
-@router.post("/upload_pdf")
-async def upload_pdf(file: UploadFile = File(...)):
+@router.post("/upload_file")
+async def upload_file(file: UploadFile = File(...)):
     from chatbot import update_vector_store  # Lazy import to avoid circular dependency
 
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    # Validate file type and extension
+    valid_types = {
+        "pdf": "application/pdf",
+        "csv": "text/csv",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls": "application/vnd.ms-excel"
+    }
+
+    file_ext = file.filename.split('.')[-1].lower()
+    if file_ext not in valid_types:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    if file.content_type != valid_types[file_ext]:
+        raise HTTPException(status_code=400, detail=f"Invalid content type for {file_ext.upper()} files")
     
-    file_path = os.path.join(pdfs_dir, file.filename)
+    file_path = os.path.join(files_dir, file.filename)
     
     # Save the uploaded file
     with open(file_path, "wb") as f:
@@ -140,16 +152,16 @@ async def upload_pdf(file: UploadFile = File(...)):
     # Update the vector store to include the new file
     update_vector_store()
     
-    return {"filename": file.filename, "message": "PDF uploaded successfully"}
+    return {"filename": file.filename, "message": f"{file_ext.upper()} file uploaded successfully"}
 
-@router.delete("/delete_pdf/{filename}")
-async def delete_pdf(filename: str):
+@router.delete("/delete_file/{filename}")
+async def delete_file(filename: str):
     from chatbot import update_vector_store  # Lazy import to avoid circular dependency
 
-    file_path = os.path.join(pdfs_dir, filename)
+    file_path = os.path.join(files_dir, filename)
     
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="PDF not found")
+        raise HTTPException(status_code=404, detail="File not found")
     
     # Delete the file
     os.remove(file_path)
@@ -157,7 +169,7 @@ async def delete_pdf(filename: str):
     # Update the vector store to remove the file
     update_vector_store()
     
-    return {"filename": filename, "message": "PDF deleted successfully"}
+    return {"filename": filename, "message": "File deleted successfully"}
 
 @router.delete("/delete_chat_session/{session_id}")
 async def delete_chat_session(session_id: str = Path(..., description="The ID of the session to delete")):
@@ -168,11 +180,18 @@ async def delete_chat_session(session_id: str = Path(..., description="The ID of
     else:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
-@router.get("/list_pdfs")
-async def list_pdfs():
+@router.get("/list_files")
+async def list_files():
     try:
-        files = [f for f in os.listdir(pdfs_dir) if f.endswith('.pdf')]
-        return JSONResponse(content=files)
+        files = {
+            "pdf_files": [f for f in os.listdir(files_dir) if f.endswith('.pdf')],
+            "csv_files": [f for f in os.listdir(files_dir) if f.endswith('.csv')],
+            "xlsx_files": [f for f in os.listdir(files_dir) if f.endswith('.xlsx')],
+            "xls_files": [f for f in os.listdir(files_dir) if f.endswith('.xls')]
+        }
+        # Flatten the lists into a single list
+        all_files = [file for sublist in files.values() for file in sublist]
+        return JSONResponse(content=all_files)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
     

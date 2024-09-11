@@ -21,7 +21,7 @@ const routes = [
         props: true
       },
       {
-        path: 'manage-pdfs',
+        path: 'manage-files',
         name: 'files',
         component: FilesComponent,
         props: true

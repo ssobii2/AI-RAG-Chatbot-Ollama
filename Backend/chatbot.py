@@ -3,7 +3,7 @@ import json
 import uvicorn
 import uuid
 import shutil
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_models import ChatOllama
@@ -32,13 +32,13 @@ app.add_middleware(
 )
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-pdfs_dir = os.path.join(current_dir, "pdfs")
+files_dir = os.path.join(current_dir, "files")
 db_dir = os.path.join(current_dir, "db")
 persistent_directory = os.path.join(db_dir, "chroma_db_with_metadata")
 processed_files_file = os.path.join(db_dir, "processed_files.json")
 metadata_file = os.path.join(db_dir, "metadata.json")
 
-print(f"PDFs directory: {pdfs_dir}")
+print(f"Files directory: {files_dir}")
 print(f"Persistent directory: {persistent_directory}")
 
 def load_processed_files():
@@ -80,14 +80,14 @@ def update_vector_store():
         processed_files = load_processed_files()
         metadata = load_metadata()
 
-        # List all PDF files in the directory
-        pdf_files = [f for f in os.listdir(pdfs_dir) if f.endswith(".pdf")]
+        # List all files in the directory
+        all_files = [f for f in os.listdir(files_dir) if f.endswith(('.pdf', '.csv', '.xlsx'))]
 
         # Identify new files
-        new_files = [f for f in pdf_files if f not in processed_files]
+        new_files = [f for f in all_files if f not in processed_files]
 
         # Identify deleted files
-        deleted_files = [f for f in processed_files if f not in pdf_files]
+        deleted_files = [f for f in processed_files if f not in all_files]
 
         # Initialize vector store
         if os.path.exists(persistent_directory):
@@ -98,24 +98,49 @@ def update_vector_store():
             db = Chroma(embedding_function=OllamaEmbeddings(base_url="http://ollama:11434", model="nomic-embed-text"), persist_directory=persistent_directory)
 
         if not new_files and not deleted_files:
-            print("\nNo changes detected in PDF files.")
+            print("\nNo changes detected in files.")
             return
 
         # Process new files if present
         if new_files:
-            print(f"\nNew PDF files detected: {new_files}")
+            print(f"\nNew files detected: {new_files}")
 
             documents = []
             chunk_metadata = {}
-            for pdf_file in new_files:
-                file_path = os.path.join(pdfs_dir, pdf_file)
-                print(f"Loading PDF file: {file_path}")
-                loader = PyPDFLoader(file_path)
-                pdf_docs = loader.load()
-                print(f"Loaded {len(pdf_docs)} documents from {file_path}")
-                for doc in pdf_docs:
-                    doc.metadata = {"source": pdf_file}
-                    documents.append(doc)
+            for file in new_files:
+                file_path = os.path.join(files_dir, file)
+                if file.endswith(".pdf"):
+                    print(f"Loading PDF file: {file_path}")
+                    loader = PyPDFLoader(file_path)
+                    pdf_docs = loader.load()
+                    print(f"Loaded {len(pdf_docs)} documents from {file_path}")
+                    for doc in pdf_docs:
+                        doc.metadata = {"source": file}
+                        documents.append(doc)
+                elif file.endswith(".csv"):
+                    print(f"Loading CSV file: {file_path}")
+                    loader = CSVLoader(file_path)
+                    csv_docs = loader.load()
+                    print(f"Loaded {len(csv_docs)} documents from {file_path}")
+                    for doc in csv_docs:
+                        doc.metadata = {"source": file}
+                        documents.append(doc)
+                elif file.endswith(".xlsx"):
+                    print(f"Loading XLSX file: {file_path}")
+                    loader = UnstructuredExcelLoader(file_path)
+                    xlsx_docs = loader.load()
+                    print(f"Loaded {len(xlsx_docs)} documents from {file_path}")
+                    for doc in xlsx_docs:
+                        doc.metadata = {"source": file}
+                        documents.append(doc)
+                elif file.endswith(".xls"):
+                    print(f"Loading XLS file: {file_path}")
+                    loader = UnstructuredExcelLoader(file_path)
+                    xls_docs = loader.load()
+                    print(f"Loaded {len(xls_docs)} documents from {file_path}")
+                    for doc in xls_docs:
+                        doc.metadata = {"source": file}
+                        documents.append(doc)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000, chunk_overlap=100
@@ -139,7 +164,7 @@ def update_vector_store():
             metadata.update(chunk_metadata)
 
         if deleted_files:
-            print(f"\nDeleted PDF files detected: {deleted_files}")
+            print(f"\nDeleted files detected: {deleted_files}")
 
             # Find vector IDs related to deleted files
             ids_to_delete = [id for id, source in metadata.items() if source in deleted_files]

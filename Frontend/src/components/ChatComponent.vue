@@ -180,33 +180,33 @@ export default {
     if (this.sessionId) {
       this.loadChatHistory(this.sessionId)
     } else {
-      this.checkPDFsAvailability()
+      this.checkFilesAvailability()
     }
   },
   methods: {
     async startChat() {
       await this.createThread()
     },
-    async checkPDFsAvailability() {
+    async checkFilesAvailability() {
       try {
-        const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
-        const pdfs = await pdfResponse.json()
+        const filesResponse = await fetch('http://127.0.0.1:8000/list_files')
+        const files = await filesResponse.json()
 
-        if (pdfs.length === 0) {
+        if (files.length === 0) {
           ElMessageBox.alert(
-            'No PDFs available. Please upload at least one PDF to start chatting.',
+            'No Files available. Please upload at least one File to start chatting.',
             'Alert',
             {
               confirmButtonText: 'OK',
               callback: () => {
-                this.$router.push('/manage-pdfs')
+                this.$router.push('/manage-files')
               }
             }
           )
         }
       } catch (error) {
-        console.error('Error checking PDFs availability:', error)
-        this.$router.push('/manage-pdfs')
+        console.error('Error checking Files availability:', error)
+        this.$router.push('/manage-files')
       }
     },
     async loadChatHistory(sessionId) {

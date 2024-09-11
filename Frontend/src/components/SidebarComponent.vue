@@ -65,7 +65,7 @@
         <span class="ml-2" v-if="!collapsed">New thread</span>
       </button>
       <router-link
-        to="/manage-pdfs"
+        to="/manage-files"
         class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
       >
         <svg
@@ -82,7 +82,7 @@
             d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
           />
         </svg>
-        <span class="ml-2" v-if="!collapsed">Manage PDFs</span>
+        <span class="ml-2" v-if="!collapsed">Manage Files</span>
       </router-link>
 
       <!-- Menu Items -->
@@ -241,33 +241,33 @@ export default {
   data() {
     return {
       collapsed: false,
-      pdfsAvailable: false
+      filesAvailable: false
     }
   },
   async created() {
-    await this.checkPDFsAvailability()
+    await this.checkFilesAvailability()
   },
   methods: {
-    async checkPDFsAvailability() {
+    async checkFilesAvailability() {
       try {
-        const pdfResponse = await fetch('http://127.0.0.1:8000/list_pdfs')
-        const pdfs = await pdfResponse.json()
-        this.pdfsAvailable = pdfs.length > 0
+        const filesResponse = await fetch('http://127.0.0.1:8000/list_files')
+        const files = await filesResponse.json()
+        this.filesAvailable = files.length > 0
       } catch (error) {
-        console.error('Error checking PDFs availability:', error)
-        this.pdfsAvailable = false
+        console.error('Error checking Files availability:', error)
+        this.filesAvailable = false
       }
     },
     async createThread() {
-      await this.checkPDFsAvailability()
-      if (!this.pdfsAvailable) {
+      await this.checkFilesAvailability()
+      if (!this.filesAvailable) {
         ElMessageBox.alert(
-          'No PDFs available. Please upload at least one PDF to start chatting.',
+          'No Files available. Please upload at least one File to start chatting.',
           'Alert',
           {
             confirmButtonText: 'OK',
             callback: () => {
-              this.$router.push('/manage-pdfs')
+              this.$router.push('/manage-files')
             }
           }
         )
@@ -276,15 +276,15 @@ export default {
       }
     },
     async navigateToHome() {
-      await this.checkPDFsAvailability()
-      if (!this.pdfsAvailable) {
+      await this.checkFilesAvailability()
+      if (!this.filesAvailable) {
         ElMessageBox.alert(
-          'No PDFs available. Please upload at least one PDF to start chatting.',
+          'No Files available. Please upload at least one File to start chatting.',
           'Alert',
           {
             confirmButtonText: 'OK',
             callback: () => {
-              this.$router.push('/manage-pdfs')
+              this.$router.push('/manage-files')
             }
           }
         )
@@ -294,15 +294,15 @@ export default {
       }
     },
     async navigateToThread(threadId) {
-      await this.checkPDFsAvailability()
-      if (!this.pdfsAvailable) {
+      await this.checkFilesAvailability()
+      if (!this.filesAvailable) {
         ElMessageBox.alert(
-          'No PDFs available. Please upload at least one PDF to start chatting.',
+          'No Files available. Please upload at least one File to start chatting.',
           'Alert',
           {
             confirmButtonText: 'OK',
             callback: () => {
-              this.$router.push('/manage-pdfs')
+              this.$router.push('/manage-files')
             }
           }
         )
@@ -320,7 +320,7 @@ export default {
         })
 
         if (!response.ok) {
-          throw new Error('Error deleting PDF.')
+          throw new Error('Error deleting File.')
         }
         this.$emit('threadDeleted', threadId)
         this.$router.push('/')
@@ -334,7 +334,7 @@ export default {
   },
   beforeRouteEnter(to, from, next) {
     next(async (vm) => {
-      await vm.checkPDFsAvailability()
+      await vm.checkFilesAvailability()
     })
   }
 }

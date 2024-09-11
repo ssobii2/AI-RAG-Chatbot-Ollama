@@ -1,14 +1,14 @@
 <template>
   <div class="container mx-auto p-4 max-w-4xl">
-    <h1 class="text-2xl font-semibold mb-6 text-center">Manage PDF Files</h1>
+    <h1 class="text-2xl font-semibold mb-6 text-center">Manage Files</h1>
     <!-- Upload Section -->
     <div class="p-6 mb-8">
-      <h2 class="text-xl font-semibold mb-4">Upload PDF</h2>
+      <h2 class="text-xl font-semibold mb-4">Upload File</h2>
       <form @submit.prevent="handleUpload">
         <input
           type="file"
           @change="handleFileChange"
-          accept=".pdf"
+          accept=".pdf, .xlsx, .xls, .csv"
           ref="fileInput"
           class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-lime-100 file:text-lime-700 hover:file:bg-lime-200"
         />
@@ -24,7 +24,7 @@
         v-if="uploadError"
         title="Upload Error"
         type="error"
-        description="PDF Upload Failed!"
+        description="File Upload Failed!"
         show-icon
       />
       <el-alert
@@ -32,23 +32,23 @@
         v-if="uploadSuccess"
         title="Upload Success"
         type="success"
-        description="PDF Uploaded Successfully!"
+        description="File Uploaded Successfully!"
         show-icon
       />
     </div>
 
-    <!-- PDF List Section -->
+    <!-- File List Section -->
     <div class="p-6">
-      <h2 class="text-xl font-semibold mb-4">Existing PDFs</h2>
+      <h2 class="text-xl font-semibold mb-4">Existing Files</h2>
       <ul>
         <li
-          v-for="(pdf, index) in pdfs"
+          v-for="(file, index) in files"
           :key="index"
           class="flex justify-between items-center mb-2"
         >
-          <span>{{ pdf }}</span>
+          <span>{{ file }}</span>
           <button
-            @click="handleDelete(pdf)"
+            @click="handleDelete(file)"
             class="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600"
           >
             <svg
@@ -73,7 +73,7 @@
         v-if="deleteSuccess"
         title="Delete Success"
         type="success"
-        description="PDF Deleted Successfully!"
+        description="File Deleted Successfully!"
         show-icon
       />
       <el-alert
@@ -81,7 +81,7 @@
         v-if="deleteError"
         title="Delete Error"
         type="error"
-        description="PDF Delete Failed!"
+        description="File Delete Failed!"
         show-icon
       />
     </div>
@@ -94,7 +94,7 @@ import { ElLoading } from 'element-plus'
 export default {
   data() {
     return {
-      pdfs: [],
+      files: [],
       selectedFile: null,
       uploadError: false,
       uploadSuccess: false,
@@ -104,7 +104,7 @@ export default {
     }
   },
   created() {
-    this.refreshPDFList()
+    this.refreshFileList()
   },
   methods: {
     handleFileChange(event) {
@@ -125,18 +125,18 @@ export default {
       formData.append('file', this.selectedFile)
 
       try {
-        const response = await fetch('http://127.0.0.1:8000/upload_pdf', {
+        const response = await fetch('http://127.0.0.1:8000/upload_file', {
           method: 'POST',
           body: formData
         })
 
         if (!response.ok) {
-          throw new Error('Error uploading PDF.')
+          throw new Error('Error uploading File.')
         }
 
         this.uploadSuccess = true
         this.clearMessage('uploadSuccess')
-        this.refreshPDFList()
+        this.refreshFileList()
         this.$refs.fileInput.value = ''
         this.selectedFile = null
       } catch (error) {
@@ -146,13 +146,13 @@ export default {
         this.stopLoading()
       }
     },
-    async handleDelete(pdf) {
+    async handleDelete(file) {
       this.deleteError = false
       this.deleteSuccess = false
       this.startLoading()
 
       try {
-        const response = await fetch(`http://127.0.0.1:8000/delete_pdf/${pdf}`, {
+        const response = await fetch(`http://127.0.0.1:8000/delete_file/${file}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
@@ -160,12 +160,12 @@ export default {
         })
 
         if (!response.ok) {
-          throw new Error('Error deleting PDF.')
+          throw new Error('Error deleting File.')
         }
 
         this.deleteSuccess = true
         this.clearMessage('deleteSuccess')
-        this.refreshPDFList()
+        this.refreshFileList()
       } catch (error) {
         this.deleteError = true
         this.clearMessage('deleteError')
@@ -173,16 +173,16 @@ export default {
         this.stopLoading()
       }
     },
-    async refreshPDFList() {
+    async refreshFileList() {
       try {
-        const response = await fetch('http://127.0.0.1:8000/list_pdfs')
+        const response = await fetch('http://127.0.0.1:8000/list_files')
         if (!response.ok) {
-          throw new Error('Error fetching PDF list.')
+          throw new Error('Error fetching File list.')
         }
-        const pdfFiles = await response.json()
-        this.pdfs = pdfFiles
+        const fileFiles = await response.json()
+        this.files = fileFiles
       } catch (error) {
-        console.error('Error fetching PDF list:', error)
+        console.error('Error fetching File list:', error)
       }
     },
     startLoading() {

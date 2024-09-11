@@ -22,7 +22,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./backend:/app
-      - ./backend/pdfs:/app/pdfs
+      - ./backend/files:/app/files
       - ./backend/db:/app/db
       - ./backend/chat_sessions:/app/chat_sessions
     command: poetry run uvicorn chatbot:app --reload --host 0.0.0.0 --port 8000
