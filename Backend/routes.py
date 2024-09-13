@@ -133,7 +133,8 @@ async def upload_file(file: UploadFile = File(...)):
         "pdf": "application/pdf",
         "csv": "text/csv",
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "xls": "application/vnd.ms-excel"
+        "xls": "application/vnd.ms-excel",
+        "json": "application/json"
     }
 
     file_ext = file.filename.split('.')[-1].lower()
@@ -187,7 +188,8 @@ async def list_files():
             "pdf_files": [f for f in os.listdir(files_dir) if f.endswith('.pdf')],
             "csv_files": [f for f in os.listdir(files_dir) if f.endswith('.csv')],
             "xlsx_files": [f for f in os.listdir(files_dir) if f.endswith('.xlsx')],
-            "xls_files": [f for f in os.listdir(files_dir) if f.endswith('.xls')]
+            "xls_files": [f for f in os.listdir(files_dir) if f.endswith('.xls')],
+            "json_files": [f for f in os.listdir(files_dir) if f.endswith('.json')]
         }
         # Flatten the lists into a single list
         all_files = [file for sublist in files.values() for file in sublist]

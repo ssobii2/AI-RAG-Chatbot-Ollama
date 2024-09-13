@@ -8,7 +8,7 @@
         <input
           type="file"
           @change="handleFileChange"
-          accept=".pdf, .xlsx, .xls, .csv"
+          accept=".pdf, .xlsx, .xls, .csv, .json"
           ref="fileInput"
           class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-lime-100 file:text-lime-700 hover:file:bg-lime-200"
         />

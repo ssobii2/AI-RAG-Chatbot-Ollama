@@ -3,7 +3,7 @@ import json
 import uvicorn
 import uuid
 import shutil
-from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader
+from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_models import ChatOllama
@@ -14,6 +14,7 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import router
+# from langchain_openai import ChatOpenAI
 
 # Set the environment variable to disable anonymized telemetry for Chroma
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -81,7 +82,7 @@ def update_vector_store():
         metadata = load_metadata()
 
         # List all files in the directory
-        all_files = [f for f in os.listdir(files_dir) if f.endswith(('.pdf', '.csv', '.xlsx'))]
+        all_files = [f for f in os.listdir(files_dir) if f.endswith(('.pdf', '.csv', '.xlsx', '.json'))]
 
         # Identify new files
         new_files = [f for f in all_files if f not in processed_files]
@@ -119,31 +120,33 @@ def update_vector_store():
                         documents.append(doc)
                 elif file.endswith(".csv"):
                     print(f"Loading CSV file: {file_path}")
-                    loader = CSVLoader(file_path)
+                    loader = CSVLoader(file_path, csv_args={
+                    'delimiter': ','})
                     csv_docs = loader.load()
                     print(f"Loaded {len(csv_docs)} documents from {file_path}")
                     for doc in csv_docs:
                         doc.metadata = {"source": file}
                         documents.append(doc)
                 elif file.endswith(".xlsx"):
-                    print(f"Loading XLSX file: {file_path}")
-                    loader = UnstructuredExcelLoader(file_path)
-                    xlsx_docs = loader.load()
-                    print(f"Loaded {len(xlsx_docs)} documents from {file_path}")
-                    for doc in xlsx_docs:
-                        doc.metadata = {"source": file}
-                        documents.append(doc)
-                elif file.endswith(".xls"):
-                    print(f"Loading XLS file: {file_path}")
-                    loader = UnstructuredExcelLoader(file_path)
-                    xls_docs = loader.load()
-                    print(f"Loaded {len(xls_docs)} documents from {file_path}")
-                    for doc in xls_docs:
+                        print(f"Loading Excel file: {file_path}")
+                        loader = UnstructuredExcelLoader(file_path)
+                        excel_docs = loader.load()
+                        print(f"Loaded {len(excel_docs)} documents from {file_path}")
+                        for doc in excel_docs:
+                            doc.metadata = {"source": file}
+                            documents.append(doc)
+                elif file.endswith(".json"):
+                    print(f"Loading JSON file: {file_path}")
+                    # loader = JSONLoader(file_path, text_content=False, jq_schema=".[]")
+                    loader = JSONLoader(file_path, text_content=False, jq_schema=".")
+                    json_docs = loader.load()
+                    print(f"Loaded {len(json_docs)} documents from {file_path}")
+                    for doc in json_docs:
                         doc.metadata = {"source": file}
                         documents.append(doc)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000, chunk_overlap=100
+                chunk_size=1000, chunk_overlap=200
             )
             rec_char_docs = rec_char_splitter.split_documents(documents)
 
@@ -210,15 +213,20 @@ else:
 # Initialize retriever after `db` is properly set up
 if db is not None:
     retriever = db.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
+        search_type="similarity",
+        search_kwargs={"k": 5},
     )
+    # retriever = db.as_retriever(
+    #     search_type="mmr",
+    #     search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
+    # )
 
 # Using a smaller model for faster response times and testing
 # You can uncomment the line below to use the larger model
 # Also make sure you have the larger model downloaded by running `ollama pull llama3.1`
-# llm = ChatOllama(model="llama3.1")
-llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:0.5b", disable_streaming=True)
+llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:1.5b")
+# llm = ChatOllama(base_url="http://ollama:11434", model="gemma:2b", disable_streaming=True)
+# llm = ChatOpenAI(model="gpt-4o")
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -253,8 +261,7 @@ qa_system_prompt = (
     "You are an assistant for question-answering tasks. Use "
     "the following pieces of retrieved context to answer the "
     "question. If you don't know the answer, just say that you "
-    "don't know. Use three sentences maximum and keep the answer "
-    "concise."
+    "don't know."
     "\n\n"
     "{context}"
 )
