@@ -3,7 +3,7 @@ import json
 import uvicorn
 import uuid
 import shutil
-from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader
+from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader, UnstructuredImageLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_models import ChatOllama
@@ -82,7 +82,7 @@ def update_vector_store():
         metadata = load_metadata()
 
         # List all files in the directory
-        all_files = [f for f in os.listdir(files_dir) if f.endswith(('.pdf', '.csv', '.xlsx', '.json'))]
+        all_files = [f for f in os.listdir(files_dir) if f.endswith(('.pdf', '.csv', '.xlsx', '.json', '.jpg', '.jpeg', '.png'))]
 
         # Identify new files
         new_files = [f for f in all_files if f not in processed_files]
@@ -120,21 +120,20 @@ def update_vector_store():
                         documents.append(doc)
                 elif file.endswith(".csv"):
                     print(f"Loading CSV file: {file_path}")
-                    loader = CSVLoader(file_path, csv_args={
-                    'delimiter': ','})
+                    loader = CSVLoader(file_path, csv_args={'delimiter': ','})
                     csv_docs = loader.load()
                     print(f"Loaded {len(csv_docs)} documents from {file_path}")
                     for doc in csv_docs:
                         doc.metadata = {"source": file}
                         documents.append(doc)
                 elif file.endswith(".xlsx"):
-                        print(f"Loading Excel file: {file_path}")
-                        loader = UnstructuredExcelLoader(file_path)
-                        excel_docs = loader.load()
-                        print(f"Loaded {len(excel_docs)} documents from {file_path}")
-                        for doc in excel_docs:
-                            doc.metadata = {"source": file}
-                            documents.append(doc)
+                    print(f"Loading Excel file: {file_path}")
+                    loader = UnstructuredExcelLoader(file_path)
+                    excel_docs = loader.load()
+                    print(f"Loaded {len(excel_docs)} documents from {file_path}")
+                    for doc in excel_docs:
+                        doc.metadata = {"source": file}
+                        documents.append(doc)
                 elif file.endswith(".json"):
                     print(f"Loading JSON file: {file_path}")
                     # loader = JSONLoader(file_path, text_content=False, jq_schema=".[]")
@@ -144,6 +143,12 @@ def update_vector_store():
                     for doc in json_docs:
                         doc.metadata = {"source": file}
                         documents.append(doc)
+                elif file.endswith((".png", ".jpg", ".jpeg")):
+                    print(f"Loading Image file: {file_path}")
+                    loader = UnstructuredImageLoader(file_path)
+                    image_docs = loader.load()
+                    print(f"Loaded {len(image_docs)} documents from {file_path}")
+                    documents.extend(image_docs)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000, chunk_overlap=200

@@ -7,7 +7,5 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the openai-whisper package
-RUN pip install openai-whisper
-
-# This image now has openai-whisper installed
+# Install the openai-whisper & unstructured package
+RUN pip install unstructured[all-docs] openai-whisper

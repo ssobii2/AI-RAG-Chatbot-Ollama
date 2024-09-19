@@ -133,8 +133,10 @@ async def upload_file(file: UploadFile = File(...)):
         "pdf": "application/pdf",
         "csv": "text/csv",
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "xls": "application/vnd.ms-excel",
-        "json": "application/json"
+        "json": "application/json",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
     }
 
     file_ext = file.filename.split('.')[-1].lower()
@@ -146,14 +148,20 @@ async def upload_file(file: UploadFile = File(...)):
     
     file_path = os.path.join(files_dir, file.filename)
     
-    # Save the uploaded file
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    try:
+        # Save the uploaded file
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+        
+        # Update the vector store to include the new file
+        update_vector_store()
+        
+        return {"filename": file.filename, "message": f"{file_ext.upper()} file uploaded successfully"}
     
-    # Update the vector store to include the new file
-    update_vector_store()
-    
-    return {"filename": file.filename, "message": f"{file_ext.upper()} file uploaded successfully"}
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.unlink(file_path)
+        raise HTTPException(status_code=500, detail=f"An error occurred while processing the file: {str(e)}")
 
 @router.delete("/delete_file/{filename}")
 async def delete_file(filename: str):
@@ -189,7 +197,10 @@ async def list_files():
             "csv_files": [f for f in os.listdir(files_dir) if f.endswith('.csv')],
             "xlsx_files": [f for f in os.listdir(files_dir) if f.endswith('.xlsx')],
             "xls_files": [f for f in os.listdir(files_dir) if f.endswith('.xls')],
-            "json_files": [f for f in os.listdir(files_dir) if f.endswith('.json')]
+            "json_files": [f for f in os.listdir(files_dir) if f.endswith('.json')],
+            "jpg_files": [f for f in os.listdir(files_dir) if f.endswith('.jpg')],
+            "jpeg_files": [f for f in os.listdir(files_dir) if f.endswith('.jpeg')],
+            "png_files": [f for f in os.listdir(files_dir) if f.endswith('.png')],
         }
         # Flatten the lists into a single list
         all_files = [file for sublist in files.values() for file in sublist]
