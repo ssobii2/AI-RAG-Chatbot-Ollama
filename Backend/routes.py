@@ -68,7 +68,7 @@ async def create_chat_session(request: Request):
 
 @router.post("/chat")
 async def chat_endpoint(request: QueryRequest):
-    from chatbot import generate_title, rag_chain, llm  # Lazy import to avoid circular dependency
+    from chatbot import generate_title, text_rag_chain, image_rag_chain, text_llm, image_llm, is_image_query  # Lazy import to avoid circular dependency
 
     query = request.query
     session_id = request.session_id
@@ -82,11 +82,20 @@ async def chat_endpoint(request: QueryRequest):
     chat_history = load_chat_history(session_id)
 
     new_title = False
-    if session_titles[session_id].startswith("Session"):
-        session_titles[session_id] = generate_title(llm, query)
-        new_title = True
 
-    result = rag_chain.invoke({"input": query, "chat_history": chat_history})
+    # Check if the query is for an image
+    if is_image_query(image_llm, query):
+        if session_titles[session_id].startswith("Session"):
+            session_titles[session_id] = generate_title(image_llm, query)
+            new_title = True
+
+        result = image_rag_chain.invoke({"input": query, "chat_history": chat_history})
+    else:
+        if session_titles[session_id].startswith("Session"):
+            session_titles[session_id] = generate_title(text_llm, query)
+            new_title = True
+
+        result = text_rag_chain.invoke({"input": query, "chat_history": chat_history})
 
     for doc in result["context"]:
         print(f"Source: {doc.metadata['source']}")

@@ -3,6 +3,7 @@ import json
 import uvicorn
 import uuid
 import shutil
+import base64
 from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader, UnstructuredImageLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
@@ -14,7 +15,11 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import router
-# from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+from langchain_core.documents import Document
+from langchain_openai import ChatOpenAI
+
+os.environ["OPENAI_API_KEY"] = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 # Set the environment variable to disable anonymized telemetry for Chroma
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -144,11 +149,25 @@ def update_vector_store():
                         doc.metadata = {"source": file}
                         documents.append(doc)
                 elif file.endswith((".png", ".jpg", ".jpeg")):
-                    print(f"Loading Image file: {file_path}")
-                    loader = UnstructuredImageLoader(file_path)
-                    image_docs = loader.load()
-                    print(f"Loaded {len(image_docs)} documents from {file_path}")
-                    documents.extend(image_docs)
+                    print(f"Processing image: {file_path}")
+
+                    with open(file_path, "rb") as image_file:
+                        image_data = base64.b64encode(image_file.read()).decode("utf-8")
+
+                    message = HumanMessage(
+                        content=[
+                            {"type": "text", "text": "Describe the content of this image."},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+                            },
+                        ]
+                    )
+                    ai_msg = image_llm.invoke([message])
+                    description_text = ai_msg.content
+                    print(f"Image description: {description_text}")
+                    doc = Document(page_content=description_text, metadata={"source": file})
+                    documents.append(doc)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000, chunk_overlap=200
@@ -229,9 +248,11 @@ if db is not None:
 # Using a smaller model for faster response times and testing
 # You can uncomment the line below to use the larger model
 # Also make sure you have the larger model downloaded by running `ollama pull llama3.1`
-llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:1.5b")
-# llm = ChatOllama(base_url="http://ollama:11434", model="gemma:2b", disable_streaming=True)
-# llm = ChatOpenAI(model="gpt-4o")
+# text_llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:1.5b")
+# text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1")
+text_llm = ChatOpenAI(model="gpt-4o")
+# image_llm = ChatOllama(base_url="http://ollama:11434", model="llava-phi3")
+image_llm = ChatOpenAI(model="gpt-4o")
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -255,8 +276,12 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages(
 
 # Create a history-aware retriever
 # This uses the LLM to help reformulate the question based on chat history
-history_aware_retriever = create_history_aware_retriever(
-    llm, retriever, contextualize_q_prompt
+text_history_aware_retriever = create_history_aware_retriever(
+    text_llm, retriever, contextualize_q_prompt
+)
+
+image_history_aware_retriever = create_history_aware_retriever(
+    image_llm, retriever, contextualize_q_prompt
 )
 
 # Answer question prompt
@@ -272,7 +297,15 @@ qa_system_prompt = (
 )
 
 # Create a prompt template for answering questions
-qa_prompt = ChatPromptTemplate.from_messages(
+qa_prompt_text = ChatPromptTemplate.from_messages(
+    [
+        ("system", qa_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
+
+qa_prompt_image = ChatPromptTemplate.from_messages(
     [
         ("system", qa_system_prompt),
         MessagesPlaceholder("chat_history"),
@@ -282,10 +315,12 @@ qa_prompt = ChatPromptTemplate.from_messages(
 
 # Create a chain to combine documents for question answering
 # `create_stuff_documents_chain` feeds all retrieved context into the LLM
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+text_question_answer_chain = create_stuff_documents_chain(text_llm, qa_prompt_text)
+image_question_answer_chain = create_stuff_documents_chain(image_llm, qa_prompt_image)
 
 # Create a retrieval chain that combines the history-aware retriever and the question answering chain
-rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+text_rag_chain = create_retrieval_chain(text_history_aware_retriever, text_question_answer_chain)
+image_rag_chain = create_retrieval_chain(image_history_aware_retriever, image_question_answer_chain)
 
 # Title Generation Prompt
 title_generation_prompt = ChatPromptTemplate.from_messages(
@@ -294,6 +329,18 @@ title_generation_prompt = ChatPromptTemplate.from_messages(
         ("human", "{input}"),
     ]
 )
+
+# Define prompt for query classification
+intent_detection_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an assistant that determines if a question is asking about an image or text. If it's related to an image, respond with 'image'. If it's text-related, respond with 'text'."),
+    ("human", "{input}")
+])
+
+def is_image_query(llm, query):
+    prompt = intent_detection_prompt.invoke({"input": query})
+    response = llm.invoke(prompt)
+    print(f"Response: {response.content}")
+    return response.content.strip().lower() == "image"
 
 def generate_title(llm, query):
     prompt = title_generation_prompt.invoke({"input": query})
