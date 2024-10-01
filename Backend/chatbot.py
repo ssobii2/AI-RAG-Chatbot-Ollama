@@ -4,7 +4,7 @@ import uvicorn
 import uuid
 import shutil
 import base64
-from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader, UnstructuredImageLoader
+from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_models import ChatOllama
@@ -17,9 +17,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import router
 from langchain_core.messages import HumanMessage
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
-
-os.environ["OPENAI_API_KEY"] = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 # Set the environment variable to disable anonymized telemetry for Chroma
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -245,14 +242,8 @@ if db is not None:
     #     search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
     # )
 
-# Using a smaller model for faster response times and testing
-# You can uncomment the line below to use the larger model
-# Also make sure you have the larger model downloaded by running `ollama pull llama3.1`
-# text_llm = ChatOllama(base_url="http://ollama:11434", model="qwen2:1.5b")
-# text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1")
-text_llm = ChatOpenAI(model="gpt-4o")
-# image_llm = ChatOllama(base_url="http://ollama:11434", model="llava-phi3")
-image_llm = ChatOpenAI(model="gpt-4o")
+text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1", keep_alive=5)
+image_llm = ChatOllama(base_url="http://ollama:11434", model="llava-phi3")
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question
@@ -332,7 +323,7 @@ title_generation_prompt = ChatPromptTemplate.from_messages(
 
 # Define prompt for query classification
 intent_detection_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are an assistant that determines if a question is asking about an image or text. If it's related to an image, respond with 'image'. If it's text-related, respond with 'text'."),
+    ("system", "You are an assistant that determines if a question is asking about an image or text. If it's related to an image, respond with 'image'. If it's text-related, respond with 'text'. You cannot reply with words other than 'image' or 'text'."),
     ("human", "{input}")
 ])
 
