@@ -84,9 +84,9 @@ async def chat_endpoint(request: QueryRequest):
     new_title = False
 
     # Check if the query is for an image
-    if is_image_query(image_llm, query):
+    if is_image_query(text_llm, query):
         if session_titles[session_id].startswith("Session"):
-            session_titles[session_id] = generate_title(image_llm, query)
+            session_titles[session_id] = generate_title(text_llm, query)
             new_title = True
 
         result = image_rag_chain.invoke({"input": query, "chat_history": chat_history})
