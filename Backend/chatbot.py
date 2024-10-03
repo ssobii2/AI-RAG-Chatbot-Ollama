@@ -150,10 +150,11 @@ def update_vector_store():
                     loader = UnstructuredImageLoader(file_path)
                     image_docs = loader.load()
                     
-                    if image_docs:
-                        print(f"Loaded {len(image_docs)} documents from {file_path}")
+                    if image_docs and any(doc.page_content.strip() for doc in image_docs):
+                        print(f"Loaded {len(image_docs)} documents from {file_path} with textual content")
                         documents.extend(image_docs)
                     else:
+                        print(f"No OCR text detected in image file: {file_path}. Using model for description.")
                         with open(file_path, "rb") as image_file:
                             image_data = base64.b64encode(image_file.read()).decode("utf-8")
 
@@ -327,18 +328,6 @@ title_generation_prompt = ChatPromptTemplate.from_messages(
         ("human", "{input}"),
     ]
 )
-
-# Define prompt for query classification
-intent_detection_prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are an assistant that determines if a question is asking about an image or text. If it's related to an image, respond with 'image'. If it's text-related, respond with 'text'. You cannot reply with words other than 'image' or 'text'."),
-    ("human", "{input}")
-])
-
-def is_image_query(llm, query):
-    prompt = intent_detection_prompt.invoke({"input": query})
-    response = llm.invoke(prompt)
-    print(f"Response: {response.content}")
-    return response.content.strip().lower() == "image"
 
 def generate_title(llm, query):
     prompt = title_generation_prompt.invoke({"input": query})
