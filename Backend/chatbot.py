@@ -4,7 +4,7 @@ import uvicorn
 import uuid
 import shutil
 import base64
-from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader
+from langchain_community.document_loaders import PyPDFLoader, CSVLoader, UnstructuredExcelLoader, JSONLoader, UnstructuredImageLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.chat_models import ChatOllama
@@ -146,25 +146,32 @@ def update_vector_store():
                         doc.metadata = {"source": file}
                         documents.append(doc)
                 elif file.endswith((".png", ".jpg", ".jpeg")):
-                    print(f"Processing image: {file_path}")
+                    print(f"Loading image file: {file_path}")
+                    loader = UnstructuredImageLoader(file_path)
+                    image_docs = loader.load()
+                    
+                    if image_docs:
+                        print(f"Loaded {len(image_docs)} documents from {file_path}")
+                        documents.extend(image_docs)
+                    else:
+                        with open(file_path, "rb") as image_file:
+                            image_data = base64.b64encode(image_file.read()).decode("utf-8")
 
-                    with open(file_path, "rb") as image_file:
-                        image_data = base64.b64encode(image_file.read()).decode("utf-8")
-
-                    message = HumanMessage(
-                        content=[
-                            {"type": "text", "text": "Describe the content of this image."},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
-                            },
-                        ]
-                    )
-                    ai_msg = image_llm.invoke([message])
-                    description_text = ai_msg.content
-                    print(f"Image description: {description_text}")
-                    doc = Document(page_content=description_text, metadata={"source": file})
-                    documents.append(doc)
+                        message = HumanMessage(
+                            content=[
+                                {"type": "text", "text": "Please provide a detailed description of the content of this image. Include any relevant information, such as objects, text, context, and any other notable details."},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+                                },
+                            ]
+                        )
+                        ai_msg = image_llm.invoke([message])
+                        description_text = ai_msg.content
+                        print(f"Image description: {description_text}")
+                        
+                        doc = Document(page_content=description_text, metadata={"source": file})
+                        documents.append(doc)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000, chunk_overlap=200
