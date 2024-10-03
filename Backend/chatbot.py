@@ -152,7 +152,9 @@ def update_vector_store():
                     
                     if image_docs and any(doc.page_content.strip() for doc in image_docs):
                         print(f"Loaded {len(image_docs)} documents from {file_path} with textual content")
-                        documents.extend(image_docs)
+                        for doc in image_docs:
+                            doc.metadata = {"source": file}
+                            documents.append(doc)
                     else:
                         print(f"No OCR text detected in image file: {file_path}. Using model for description.")
                         with open(file_path, "rb") as image_file:
@@ -175,7 +177,7 @@ def update_vector_store():
                         documents.append(doc)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000, chunk_overlap=200
+                chunk_size=500, chunk_overlap=300
             )
             rec_char_docs = rec_char_splitter.split_documents(documents)
 
@@ -232,7 +234,7 @@ if not os.path.exists(persistent_directory):
     update_vector_store()
 else:
     print("Vector store already exists. Loading existing vector store.")
-    model_name = "nomic-embed-text"
+    model_name = "mxbai-embed-large"
     embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
     db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
 
@@ -241,14 +243,14 @@ else:
 
 # Initialize retriever after `db` is properly set up
 if db is not None:
-    retriever = db.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 5},
-    )
     # retriever = db.as_retriever(
-    #     search_type="mmr",
-    #     search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
+    #     search_type="similarity",
+    #     search_kwargs={"k": 5},
     # )
+    retriever = db.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 5, "fetch_k": 50, "lambda_mult": 0.5},
+    )
 
 text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1", keep_alive=5)
 image_llm = ChatOllama(base_url="http://ollama:11434", model="llava", keep_alive=5)
@@ -257,11 +259,10 @@ image_llm = ChatOllama(base_url="http://ollama:11434", model="llava", keep_alive
 # This system prompt helps the AI understand that it should reformulate the question
 # based on the chat history to make it a standalone question
 contextualize_q_system_prompt = (
-    "Given the chat history and the latest user question "
-    "which might reference context in the chat history, "
-    "formulate a standalone question which can be understood "
-    "without the chat history. Do NOT answer the question, just "
-    "reformulate it if needed and otherwise return it as is."
+    "Given the chat history and the latest user question, "
+    "rephrase the question so that it can be understood without "
+    "any context from the chat history. Do NOT answer the question. "
+    "If the question is already standalone, return it as is."
 )
 
 # Create a prompt template for contextualizing questions
@@ -277,10 +278,6 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages(
 # This uses the LLM to help reformulate the question based on chat history
 text_history_aware_retriever = create_history_aware_retriever(
     text_llm, retriever, contextualize_q_prompt
-)
-
-image_history_aware_retriever = create_history_aware_retriever(
-    image_llm, retriever, contextualize_q_prompt
 )
 
 # Answer question prompt
@@ -304,22 +301,12 @@ qa_prompt_text = ChatPromptTemplate.from_messages(
     ]
 )
 
-qa_prompt_image = ChatPromptTemplate.from_messages(
-    [
-        ("system", qa_system_prompt),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ]
-)
-
 # Create a chain to combine documents for question answering
 # `create_stuff_documents_chain` feeds all retrieved context into the LLM
 text_question_answer_chain = create_stuff_documents_chain(text_llm, qa_prompt_text)
-image_question_answer_chain = create_stuff_documents_chain(image_llm, qa_prompt_image)
 
 # Create a retrieval chain that combines the history-aware retriever and the question answering chain
 text_rag_chain = create_retrieval_chain(text_history_aware_retriever, text_question_answer_chain)
-image_rag_chain = create_retrieval_chain(image_history_aware_retriever, image_question_answer_chain)
 
 # Title Generation Prompt
 title_generation_prompt = ChatPromptTemplate.from_messages(
