@@ -138,8 +138,8 @@ def update_vector_store():
                         documents.append(doc)
                 elif file.endswith(".json"):
                     print(f"Loading JSON file: {file_path}")
-                    # loader = JSONLoader(file_path, text_content=False, jq_schema=".[]")
-                    loader = JSONLoader(file_path, text_content=False, jq_schema=".")
+                    loader = JSONLoader(file_path, text_content=False, jq_schema=".[]")
+                    # loader = JSONLoader(file_path, text_content=False, jq_schema=".")
                     json_docs = loader.load()
                     print(f"Loaded {len(json_docs)} documents from {file_path}")
                     for doc in json_docs:
@@ -177,7 +177,7 @@ def update_vector_store():
                         documents.append(doc)
 
             rec_char_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=500, chunk_overlap=300
+                chunk_size=1000, chunk_overlap=100
             )
             rec_char_docs = rec_char_splitter.split_documents(documents)
 
@@ -249,7 +249,7 @@ if db is not None:
     # )
     retriever = db.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 50, "lambda_mult": 0.5},
+        search_kwargs={"k": 8, "fetch_k": 30, "lambda_mult": 0.7},
     )
 
 text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1", keep_alive=5)
@@ -259,10 +259,10 @@ image_llm = ChatOllama(base_url="http://ollama:11434", model="llava", keep_alive
 # This system prompt helps the AI understand that it should reformulate the question
 # based on the chat history to make it a standalone question
 contextualize_q_system_prompt = (
-    "Given the chat history and the latest user question, "
-    "rephrase the question so that it can be understood without "
-    "any context from the chat history. Do NOT answer the question. "
-    "If the question is already standalone, return it as is."
+    "Based on the chat history and the user's latest query, "
+    "rephrase the question to make it a precise, stand-alone question. "
+    "If there are multiple aspects, break them down clearly, "
+    "but do NOT answer the question. Return the reformulated question."
 )
 
 # Create a prompt template for contextualizing questions
@@ -285,9 +285,9 @@ text_history_aware_retriever = create_history_aware_retriever(
 # based on the retrieved context and indicates what to do if the answer is unknown
 qa_system_prompt = (
     "You are an assistant for question-answering tasks. Use "
-    "the following pieces of retrieved context to answer the "
-    "question. If you don't know the answer, just say that you "
-    "don't know."
+    "the following retrieved context to answer the question. "
+    "If the context doesn't contain relevant information, "
+    "inform the user that more clarification is needed or suggest a more specific question."
     "\n\n"
     "{context}"
 )
@@ -311,7 +311,7 @@ text_rag_chain = create_retrieval_chain(text_history_aware_retriever, text_quest
 # Title Generation Prompt
 title_generation_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 4 words. Do not exceed the word limit and keep the title clear and concise."),
+        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 4 words. Do NOT exceed the word limit and keep the title clear and concise."),
         ("human", "{input}"),
     ]
 )
