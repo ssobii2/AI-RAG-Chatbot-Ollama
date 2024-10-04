@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen">
+  <div class="flex h-screen bg-zinc-800 text-white">
     <SidebarComponent
       :threads="threads"
       @createThread="createThread"

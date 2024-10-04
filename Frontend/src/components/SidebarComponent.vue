@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'sidebar bg-gray-100 text-gray-800 p-4 h-screen flex flex-col justify-between transition-width duration-300 ease-in-out',
+      'sidebar bg-zinc-900 text-white p-4 h-screen flex flex-col justify-between transition-width duration-300 ease-in-out',
       collapsed ? 'w-20' : 'w-72'
     ]"
   >
@@ -50,7 +50,7 @@
       <hr class="my-2 border-gray-300" />
       <button
         @click="createThread()"
-        class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
+        class="flex items-center bg-zinc-800 text-white py-2 px-3 mb-4 rounded-lg w-full"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -66,7 +66,7 @@
       </button>
       <router-link
         to="/manage-files"
-        class="flex items-center bg-white text-gray-800 py-2 px-3 mb-4 rounded-lg w-full"
+        class="flex items-center bg-zinc-800 text-white py-2 px-3 mb-4 rounded-lg w-full"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -88,7 +88,7 @@
       <!-- Menu Items -->
       <ul>
         <li
-          class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg"
+          class="flex items-center mb-3 cursor-pointer hover:bg-zinc-800 py-2 px-3 rounded-lg"
           @click="navigateToHome"
         >
           <svg
@@ -107,7 +107,7 @@
           </svg>
           <span class="ml-2" v-if="!collapsed">Home</span>
         </li>
-        <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
+        <li class="flex items-center mb-3 cursor-pointer hover:bg-zinc-800 py-2 px-3 rounded-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -124,7 +124,7 @@
           </svg>
           <span class="ml-2" v-if="!collapsed">Syncs</span>
         </li>
-        <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
+        <li class="flex items-center mb-3 cursor-pointer hover:bg-zinc-800 py-2 px-3 rounded-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -142,7 +142,7 @@
           <span class="ml-2" v-if="!collapsed">Models</span>
         </li>
         <hr class="my-10 border-gray-300" />
-        <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
+        <li class="flex items-center mb-3 cursor-pointer hover:bg-zinc-800 py-2 px-3 rounded-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -164,7 +164,7 @@
             v-for="thread in threads"
             :key="thread.session_id"
             @click="navigateToThread(thread.session_id)"
-            class="flex items-center justify-between mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg"
+            class="flex items-center justify-between mb-3 cursor-pointer hover:bg-zinc-800 py-2 px-3 rounded-lg"
           >
             {{ thread.title }}
             <button v-if="!collapsed" @click.stop="deleteThread(thread.session_id)">
@@ -191,7 +191,7 @@
     <!-- Bottom Section -->
     <div>
       <ul>
-        <li class="flex items-center mb-3 cursor-pointer hover:bg-gray-200 py-2 px-3 rounded-lg">
+        <li class="flex items-center mb-3 cursor-pointer hover:bg-zinc-800 py-2 px-3 rounded-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"

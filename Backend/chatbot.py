@@ -253,7 +253,7 @@ if db is not None:
     )
 
 text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1", keep_alive=5)
-image_llm = ChatOllama(base_url="http://ollama:11434", model="llava", keep_alive=5)
+image_llm = ChatOllama(base_url="http://ollama:11434", model="llava-llama3", keep_alive=5)
 
 # Contextualize question prompt
 # This system prompt helps the AI understand that it should reformulate the question

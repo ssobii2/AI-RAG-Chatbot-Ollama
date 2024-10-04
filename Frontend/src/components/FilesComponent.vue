@@ -10,11 +10,11 @@
           @change="handleFileChange"
           accept=".pdf, .xlsx, .xls, .csv, .json, .png, .jpg, .jpeg"
           ref="fileInput"
-          class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-lime-100 file:text-lime-700 hover:file:bg-lime-200"
+          class="block w-full text-sm border border-gray-400 rounded-lg cursor-pointer bg-zinc-800 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-700 file:text-white hover:file:bg-zinc-900"
         />
         <button
           type="submit"
-          class="mt-4 mb-2 px-4 py-2 bg-lime-400 text-white rounded-lg hover:bg-lime-500"
+          class="mt-4 mb-2 px-4 py-2 bg-zinc-800 border border-gray-400 rounded-lg hover:bg-zinc-900"
         >
           Upload
         </button>
@@ -26,6 +26,7 @@
         type="error"
         description="File Upload Failed!"
         show-icon
+        effect="dark"
       />
       <el-alert
         class="mt-2"
@@ -34,6 +35,7 @@
         type="success"
         description="File Uploaded Successfully!"
         show-icon
+        effect="dark"
       />
     </div>
 
@@ -75,6 +77,7 @@
         type="success"
         description="File Deleted Successfully!"
         show-icon
+        effect="dark"
       />
       <el-alert
         class="mt-2"
@@ -83,6 +86,7 @@
         type="error"
         description="File Delete Failed!"
         show-icon
+        effect="dark"
       />
     </div>
   </div>

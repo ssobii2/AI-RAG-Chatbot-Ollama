@@ -5,3 +5,16 @@
   margin: 0;
   font-weight: normal;
 }
+
+.el-message-box {
+  --el-text-color-primary: #fff;
+  --el-text-color-regular: #fff;
+  --el-bg-color: #333;
+}
+
+.el-button--primary {
+  --el-color-primary: #27272A;
+  --el-color-primary-light-5: #fff;
+  --el-color-primary-light-3: #18181B;
+  --el-color-primary-dark-2: #27272A;
+}

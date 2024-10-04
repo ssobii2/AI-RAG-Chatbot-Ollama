@@ -1,12 +1,12 @@
 <template>
-  <div class="flex flex-col justify-between items-center h-screen w-full">
+  <div class="flex flex-col justify-between items-center h-screen w-full bg-zinc-800 text-white">
     <!-- Central Content -->
     <div
       v-if="!hasSentMessage && !loading"
       class="flex flex-col justify-center items-center flex-grow"
     >
       <div class="text-center mb-8">
-        <div class="bg-white shadow-lg inline-block mb-6 border rounded-lg">
+        <div class="inline-block mb-6 rounded-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -23,12 +23,12 @@
           </svg>
         </div>
         <h1 class="text-4xl font-bold mb-4">Chat with me</h1>
-        <p class="text-gray-600 max-w-md mb-2">Chat with Meta's Latest AI model - Llama 3.1</p>
-        <p class="text-gray-600 max-w-md mb-4">
+        <p class="max-w-md mb-2">Chat with Meta's Latest AI model - Llama 3.1</p>
+        <p class="max-w-md mb-4">
           Create a new Thread or Click below to start chatting
         </p>
         <button
-          class="mt-6 py-2 px-4 bg-white text-black border border-gray-300 rounded-md shadow-sm hover:bg-gray-100"
+          class="mt-6 py-2 px-4 bg-zinc-800 text-white border border-gray-400 rounded-md hover:bg-zinc-900"
           @click="startChat"
         >
           Get started with a model
@@ -45,16 +45,31 @@
       <div
         v-for="(message, index) in chatHistory"
         :key="index"
-        :class="message.role === 'user' ? 'text-right' : 'text-left'"
+        :class="message.role === 'user' ? 'text-right mb-4' : 'text-left mb-4'"
       >
-        <p
-          :class="
-            message.role === 'user' ? 'bg-blue-200 text-blue-800' : 'bg-green-200 text-green-800'
-          "
-          class="inline-block px-4 py-2 rounded-md max-w-xs"
-        >
-          {{ message.content }}
-        </p>
+        <div :class="message.role === 'ai' ? 'flex items-start' : ''">
+          <svg
+            v-if="message.role === 'ai'"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-6 mr-2 flex-shrink-0"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
+            />
+          </svg>
+          <p
+            :class="message.role === 'user' ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-white'"
+            class="inline-block px-4 py-2 rounded-md"
+          >
+            {{ message.content }}
+          </p>
+        </div>
       </div>
       <!-- Loading Indicator -->
       <div v-if="loading" class="text-center mt-4">
@@ -62,7 +77,7 @@
           v-loading="loading"
           style="width: 100%"
           element-loading-text="AI is thinking..."
-          element-loading-background="#FFFF"
+          element-loading-background="#27272A"
         >
           <el-table-column label="AI" />
         </el-table>
@@ -75,7 +90,7 @@
       <textarea
         v-model="userInput"
         placeholder="Ask a question or make a request..."
-        class="flex-grow p-3 rounded-md border-none bg-gray-100 resize-none h-32 focus:outline-none"
+        class="flex-grow p-3 rounded-md border-none bg-zinc-700 resize-none h-32 focus:outline-none"
       ></textarea>
       <!-- <select
         class="bg-white border-2 rounded-md py-2 px-2 absolute bottom-7 left-6 focus:outline-none cursor-pointer"
@@ -85,7 +100,7 @@
       <button
         @click="sendMessage"
         :disabled="loading"
-        class="bg-lime-300 text-gray-800 p-3 rounded-md hover:bg-lime-400 absolute bottom-7 right-6"
+        class="bg-zinc-800 border border-gray-400 p-3 rounded-md hover:bg-zinc-900 absolute bottom-7 right-6"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -106,8 +121,8 @@
       <!-- Audio Recording Button -->
       <button
         @click="toggleRecording"
-        :class="recording ? 'bg-red-500 hover:bg-red-600' : 'bg-lime-300 hover:bg-lime-400'"
-        class="text-gray-800 p-3 rounded-md absolute bottom-7 left-6"
+        :class="recording ? 'bg-red-500 hover:bg-red-600' : 'bg-zinc-800 hover:bg-zinc-900'"
+        class="p-3 border border-gray-400 rounded-md absolute bottom-7 left-6"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
