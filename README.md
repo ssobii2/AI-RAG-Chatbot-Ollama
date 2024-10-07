@@ -1,51 +1,53 @@
-### Prerequisites
+# AI-RAG-Ollama
 
-- Docker Desktop
+Welcome to the **AI-RAG-Ollama** repository. This project uses open source models from ollama and whisper to create a conversational AI that can be used to generate answers based on the provided files. The project is built using FastApi (Python) and VueJS (Frontend), and can be run locally on your machine.
 
-- Run below commands when Docker Desktop is Running then follow below
-```
-docker buildx build -f Dockerfile.whisper -t whisper-base .
-```
-- Make sure to run the above command in the backend directory where the Dockerfile.whisper is present. This command will take a lot of time because it will download the full openai-whisper package.
+## 🎯 Prerequisites
 
-```
-docker compose up --build
-```
-- Make sure to run the above command in the root directory of the project, where the docker-compose.yml file is present.
+Ensure you have Docker installed on your system. You can download **[Docker Desktop](https://www.docker.com/products/docker-desktop)** for your platform. Once Docker is running, follow the steps below to set up and run the project.
 
-## Note
+## 🚀 Quick Start
 
-When running the first time, the below commands will need to run in the Ollama Container (make sure all the containers or just the ollama container is running) to download the models. I could not find a way to automate this process hence it needs to run manually. The backend will fail because it would not find the models for the first time.
+### Step 1: Build the Whisper Base Image
 
-### Ollama Commands After running the Ollama Container
+1. Open your terminal (in Visual Studio Code which is easier).
+2. Navigate to the Backend directory/folder where `Dockerfile.whisper` is located. Use ```cd ./Backend``` to navigate to the backend directory.
+3. Run the following command to build the image:
+	```
+	docker buildx build -f Dockerfile.whisper -t whisper-base .
+	```
+⚠️ Important Note: This command might take a while as it downloads the full OpenAI Whisper package.
 
-1. In Docker Desktop, click on the Ollama container then go to Exec tab and run the following commands:
+### Step 2: Set up the Environment
 
-    - For Embeddings,
-    ```
-    ollama pull mxbai-embed-large
-    ```
-    ### OR
-    ```
-    ollama pull nomic-embed-text
-    ```
-    - For Chat Bot,
-    ```
-    ollama pull llama3.1
-    ```
-    - For Images
-    ```
-    ollama pull llava-llama3
-    ```
-    ### OR
-    ```
-    ollama pull llava
-    ```
+1. Navigate to the root directory of the project which contains the `docker-compose.yml` file. Use ```cd ../``` to go back to the root directory.
+2. Run the following command to build all your services:
+	```
+	docker-compose up --build
+	```
+⚠️ Important Note
 
-2. Which ever model you decided to download, make sure to change it in the chatbot.py file to which ever you downloaded. Search for this comment "# Change to your pulled model" to find where to change.
+The first time you run the setup, models must be downloaded into the Ollama container. This Docker Compose configuration automates this process. The setup might take a while to complete, depending on your internet speed. The above command builds and runs the application. Models are downloading during the running process.
 
-2. The downloading can also fail due to some reasons so just run the commands again to download them.
+🔧 Model Setup
 
-3. After running the above commands please check if the db folder in the backend is empty and there are no files because if there are then those vector store files are incorrect and needs to be deleted (It should be empty but just in case please check. To delete them you need to stop the backend container if running)
+The initial setup will download and prepare the necessary models automatically as configured:
 
-4. One other thing, backend takes a while to make vector store and download the whisper model so please be patient check the logs for progress and reload the front end page when the backend is fully started. You can check in dev tools network tab to see if its connected to the backend successfully.
+- Embedding Model:
+	- mxbai-embed-large
+
+- Chat Bot Models:
+	- llama3.1
+
+- Image Models:
+	- llava-llama3
+
+These models are specified in the `docker-compose.yml` through the `ollama_pull` service and are downloaded upon first execution.
+
+🛠️ Troubleshooting
+
+1. If model downloading fails, just run the `ollama_pull` container again from `Docker Desktop`. The model downloading progress is not updated real time but the container logs will look something like this:
+
+![Models Downloading](./images/image.png)
+
+2. Reload the frontend page once the backend is up and running.
