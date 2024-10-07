@@ -95,11 +95,9 @@ def update_vector_store():
         # Initialize vector store
         if os.path.exists(persistent_directory):
             print("\nLoading existing vector store")
-            # Change to your pulled model
             db = Chroma(embedding_function=OllamaEmbeddings(base_url="http://ollama:11434", model="mxbai-embed-large"), persist_directory=persistent_directory)
         else:
             print("\nCreating new vector store")
-            # Change to your pulled model
             db = Chroma(embedding_function=OllamaEmbeddings(base_url="http://ollama:11434", model="mxbai-embed-large"), persist_directory=persistent_directory)
 
         if not new_files and not deleted_files:
@@ -236,7 +234,6 @@ if not os.path.exists(persistent_directory):
     update_vector_store()
 else:
     print("Vector store already exists. Loading existing vector store.")
-    # Change to your pulled model
     model_name = "mxbai-embed-large"
     embeddings = OllamaEmbeddings(base_url="http://ollama:11434", model=model_name)
     db = Chroma(embedding_function=embeddings, persist_directory=persistent_directory)
@@ -255,7 +252,6 @@ if db is not None:
         search_kwargs={"k": 8, "fetch_k": 30, "lambda_mult": 0.7},
     )
 
-# Change to your pulled model
 text_llm = ChatOllama(base_url="http://ollama:11434", model="llama3.1", keep_alive=5)
 image_llm = ChatOllama(base_url="http://ollama:11434", model="llava-llama3", keep_alive=5)
 

@@ -3,7 +3,6 @@ services:
     build:
       context: ./frontend
     ports:
-      # - "5173:5173"
       - 4200:4200
     volumes:
       - ./frontend:/app
@@ -25,9 +24,20 @@ services:
       - ./backend/files:/app/files
       - ./backend/db:/app/db
       - ./backend/chat_sessions:/app/chat_sessions
-    command: poetry run uvicorn chatbot:app --reload --host 0.0.0.0 --port 8000
+      - ./completion:/completion
+    entrypoint: >
+      sh -c "
+        echo 'Waiting for model downloads to finish...' &&
+        while [ ! -f /completion/all_models_ready ]; do
+          echo 'Waiting for models to be ready...'
+          sleep 5
+        done &&
+        echo 'Models ready, starting the backend service.' &&
+        rm -f /completion/all_models_ready &&
+        poetry run uvicorn chatbot:app --reload --host 0.0.0.0 --port 8000
+      "
     depends_on:
-      - ollama
+      - ollama_pull
 
   ollama:
     image: ollama/ollama:latest
@@ -42,6 +52,33 @@ services:
             count: all
     volumes:
       - ollama:/root/.ollama
+
+  ollama_pull:
+    image: ollama/ollama:latest
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ollama:/root/.ollama
+      - ./completion:/completion
+    entrypoint: >
+      sh -c "
+        echo 'Waiting for Ollama server to start...' &&
+        sleep 10 &&
+        if ollama ps > /dev/null 2>&1; then
+          echo 'Pulling llama3.1...' &&
+          ollama pull llama3.1 &&
+          echo 'Pulling embedding model...' &&
+          ollama pull mxbai-embed-large &&
+          echo 'Pulling image model...' &&
+          ollama pull llava-llama3 &&
+          echo 'Model preparation complete.'
+          touch /completion/all_models_ready
+        else
+          echo 'Retrying the server connection: Failed to establish initial contact.';
+        fi
+      "
+    depends_on:
+      - ollama
 
 volumes:
   ollama:
