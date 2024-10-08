@@ -4,7 +4,7 @@ import uuid
 import shutil
 import whisper
 from fastapi import HTTPException, Path, Request, UploadFile, File, WebSocket, WebSocketDisconnect, APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from collections import defaultdict
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -87,19 +87,25 @@ async def chat_endpoint(request: QueryRequest):
         session_titles[session_id] = generate_title(text_llm, query)
         new_title = True
 
-    result = text_rag_chain.invoke({"input": query, "chat_history": chat_history})
+    async def answer_generator():
+        response_chunks = []
+        async for chunk in text_rag_chain.astream({"input": query, "chat_history": chat_history}):
+            if 'context' in chunk:
+                for doc in chunk['context']:
+                    print(f"Source: {doc.metadata['source']}")
+                    print("Content:")
+                    print(doc.page_content)
+                    print("\n" + "-"*80 + "\n")
+            if 'answer' in chunk:
+                response_chunks.append(chunk['answer'])
+                yield chunk['answer']
+        
+        final_response = "".join(response_chunks)
+        chat_history.append(HumanMessage(content=query))
+        chat_history.append(SystemMessage(content=final_response))
+        save_chat_history(session_id, chat_history)
 
-    for doc in result["context"]:
-        print(f"Source: {doc.metadata['source']}")
-        print("Content:")
-        print(doc.page_content)
-        print("\n" + "-"*80 + "\n")
-    
-    chat_history.append(HumanMessage(content=query))
-    chat_history.append(SystemMessage(content=result["answer"]))
-    save_chat_history(session_id, chat_history)
-
-    return {"answer": result['answer'], "title": session_titles[session_id] if new_title else None}
+    return StreamingResponse(answer_generator(), media_type="text/plain")
 
 @router.get("/chat_history/{session_id}")
 async def get_chat_history(session_id: str = Path(..., description="The ID of the session to retrieve chat history for")):
