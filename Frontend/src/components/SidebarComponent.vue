@@ -236,7 +236,10 @@ import { ElMessageBox } from 'element-plus'
 export default {
   name: 'SidebarComponent',
   props: {
-    threads: Array
+    threads: {
+      type: Array,
+      required: true
+    }
   },
   data() {
     return {

@@ -311,7 +311,7 @@ text_rag_chain = create_retrieval_chain(text_history_aware_retriever, text_quest
 # Title Generation Prompt
 title_generation_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 4 words. Do NOT exceed the word limit and keep the title clear and concise."),
+        ("system", "You are a helpful assistant that generates concise, clear, and descriptive titles. Given the user query below, generate a title that summarizes the main topic or request of the query in 3 to 4 words. Do NOT exceed the word limit and keep the title clear and concise. Also, do NOT put the title in quotes."),
         ("human", "{input}"),
     ]
 )

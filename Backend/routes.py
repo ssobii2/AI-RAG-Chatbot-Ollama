@@ -81,11 +81,8 @@ async def chat_endpoint(request: QueryRequest):
 
     chat_history = load_chat_history(session_id)
 
-    new_title = False
-
     if session_titles[session_id].startswith("Session"):
         session_titles[session_id] = generate_title(text_llm, query)
-        new_title = True
 
     async def answer_generator():
         response_chunks = []
@@ -106,6 +103,12 @@ async def chat_endpoint(request: QueryRequest):
         save_chat_history(session_id, chat_history)
 
     return StreamingResponse(answer_generator(), media_type="text/plain")
+
+@router.get("/session/{session_id}/title")
+async def get_session_title(session_id: str):
+    if session_id not in session_titles:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"title": session_titles[session_id]}
 
 @router.get("/chat_history/{session_id}")
 async def get_chat_history(session_id: str = Path(..., description="The ID of the session to retrieve chat history for")):

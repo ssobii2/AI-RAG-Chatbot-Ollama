@@ -199,7 +199,6 @@ export default {
           const result = await response.json();
           sessionId = result.session_id;
           this.$emit('updateSession', sessionId);
-          this.$emit('updateTitle', { session_id: sessionId, title: result.title });
         }
 
         this.chatHistory.push(userMessage);
@@ -232,21 +231,24 @@ export default {
           if (!firstChunkReceived) {
             this.loading = false;
             firstChunkReceived = true;
+            this.fetchSessionTitle(sessionId);
           }
           this.$forceUpdate();
-        }
-
-        if (response.headers.get('Content-Type').includes('application/json')) {
-          const result = JSON.parse(aiMessage.content);
-          aiMessage.content = result.answer;
-          if (result.title) {
-            this.$emit('updateTitle', { session_id: sessionId, title: result.title });
-          }
         }
 
       } catch (error) {
         console.error('Error:', error);
         this.loading = false;
+      }
+    },
+    async fetchSessionTitle(sessionId) {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/session/${sessionId}/title`);
+        const result = await response.json();
+        const title = result.title;
+        this.$emit('updateTitle', { session_id: sessionId, title });
+      } catch (error) {
+        console.error('Error fetching session title:', error);
       }
     },
     async toggleRecording() {

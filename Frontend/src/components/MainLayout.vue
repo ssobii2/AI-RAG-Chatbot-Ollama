@@ -1,19 +1,9 @@
 <template>
   <div class="flex h-screen bg-zinc-800 text-white">
-    <SidebarComponent
-      :threads="threads"
-      @createThread="createThread"
-      @selectThread="selectThread"
-      @home="resetChatState"
-      @threadDeleted="updateThreads"
-    />
-    <router-view
-      :key="currentRoute"
-      :threads="threads"
-      :createThread="createThread"
-      @updateSession="updateSessionId"
-      @updateTitle="updateTitle"
-    ></router-view>
+    <SidebarComponent :threads="threads" @createThread="createThread" @selectThread="selectThread"
+      @home="resetChatState" @threadDeleted="updateThreads" />
+    <router-view :key="currentRoute" :threads="threads" :createThread="createThread" @updateSession="updateSessionId"
+      @updateTitle="updateTitle"></router-view>
   </div>
 </template>
 
